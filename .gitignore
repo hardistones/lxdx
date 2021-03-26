@@ -1,0 +1,29 @@
+# editors
+.idea/
+
+# source
+.py[cod]
+__pycache__/
+
+# distribution/packaging
+*.egg
+*.egg-info
+.eggs/
+build/
+dist/
+eggs/
+sdist/
+wheels/
+
+# testing
+.coverage
+.pytest_cache/
+
+# pyenv
+.python-version
+
+# Environments
+.env
+.venv
+env/
+venv/
