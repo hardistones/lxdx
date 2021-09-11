@@ -1,0 +1,47 @@
+[tool.poetry]
+name = "lxdx"
+version = "0.1.0"
+authors = ["Hardy Stones <hardistones@hotmail.com>"]
+homepage = "https://github.com/hardistones/lxdx"
+description = ""
+license = "MIT License"
+readme = "README.md"
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.9",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Utilities"
+]
+exclude = ["tests"]
+
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/hardistones/lxdx/issues"
+
+
+[tool.poetry.dependencies]
+python = "^3.9"
+
+
+[tool.poetry.dev-dependencies]
+assertpy = "*"
+pytest = "*"
+pytest-cov = "*"
+pytest-sugar = "*"
+pytest-instafail = "*"
+pytest-xdist = "*"
+pytest-random-order = "*"
+pytest-timeout = "*"
+pytest-mccabe = "*"
+pylint = "*"
+
+
+[build-system]
+requires = ["poetry_core"]
+build-backend = "poetry.core.masonry.api"
