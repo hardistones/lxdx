@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lxdx"
-version = "0.1.0"
+version = "0.1b1"
 authors = ["Hardy Stones <hardistones@hotmail.com>"]
 homepage = "https://github.com/hardistones/lxdx"
 description = ""
@@ -40,6 +40,7 @@ pytest-random-order = "*"
 pytest-timeout = "*"
 pytest-mccabe = "*"
 pylint = "*"
+flake8 = "*"
 
 
 [build-system]
