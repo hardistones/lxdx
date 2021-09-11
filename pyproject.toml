@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lxdx"
-version = "0.1b1"
+version = "0.1b2"
 authors = ["Hardy Stones <hardistones@hotmail.com>"]
 homepage = "https://github.com/hardistones/lxdx"
 description = ""
