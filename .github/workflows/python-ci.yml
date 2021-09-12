@@ -8,6 +8,8 @@ on:
     branches: [dev,main]
     paths-ignore:
       - 'docs/**'
+      - LICENSE
+      - README.*
   pull_request:
     branches: [dev,main]
 
