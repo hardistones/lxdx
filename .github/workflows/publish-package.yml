@@ -13,6 +13,8 @@ on:
     tags:
       - v0.*
       - v1.*
+  release:
+    types: [published]
 
 jobs:
   publish-package:
@@ -21,11 +23,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-
-      - name: Get Current Branch
-        id: get-current-branch
-        run: echo "::set-output name=branch::$(git branch --show-current)"
-        shell: bash
 
       - name: Set up Python
         uses: actions/setup-python@v2
@@ -45,7 +42,7 @@ jobs:
           echo ${{steps.get-current-branch.outputs.branch}}
 
       - name: Publish packages to test.pypi.org
-        if: steps.get-current-branch.outputs.branch == 'dev'
+        if: github.event_name != 'release'
         run: echo upload to test.pypi.org
 #        uses: pypa/gh-action-pypi-publish@v1.4.2
 #        with:
@@ -55,7 +52,7 @@ jobs:
 #          packages_dir: dist/
 
       - name: Publish packages to pypi.org
-        if: steps.get-current-branch.outputs.branch == 'main'
+        if: github.event_name == 'release'
         run: echo upload to pypi.org
 #        uses: pypa/gh-action-pypi-publish@v1.4.2
 #        with:
