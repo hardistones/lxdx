@@ -564,12 +564,17 @@ class TestDixt(unittest.TestCase):
         # not LIFO as with dict
         self.assertEqual(dx.popitem(), ('a', 1))
 
-    def test__setdefault(self):
+    def test__setdefault__sets_value_to_nonexistent_key_from_default_value(self):
         """Testing inherited function from MutableMapping."""
+        self.assertTrue('extra-extra' not in self.dixt)
         self.dixt.setdefault('extra-extra', 'extra-value')
         self.assertEqual(self.dixt.extra_extra, 'extra-value')
 
-        # does not override existing
+        self.assertTrue('to-exist' not in self.dixt)
+        self.dixt.setdefault('to-exist')
+        self.assertEqual(self.dixt.to_exist, None)
+
+    def test__setdefault__does_not_overwrite_existing_value(self):
         self.dixt.setdefault('extra', 'another-value')
         self.assertEqual(self.dixt.extra, 'info')
 

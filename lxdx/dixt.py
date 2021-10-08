@@ -32,17 +32,15 @@ import json
 
 from collections.abc import KeysView, ItemsView, ValuesView, MutableMapping
 from dataclasses import MISSING
-from typing import Any, Dict, Union, Mapping, TypeVar
+from typing import Any, Dict, Mapping
 
 
 __all__ = ['Dixt']
 
-IterableKeyValuePairs = TypeVar('IterableKeyValuePairs', tuple, list)
-
 
 class Dixt(MutableMapping):
     """``Dixt`` is an "extended" Python ``dict``, works just like a ``dict``,
-    but with functions additionally not found in ``dict``.
+    but with methods additionally not found in ``dict``.
 
     In the context of ``Mapping`` objects, there are only `keys` and `values`.
     But in ``Dixt``, a `key` can be accessed and even modified by using the
@@ -110,7 +108,8 @@ class Dixt(MutableMapping):
             del self.__dict__['data'][origkey]
             del self.__dict__['keymap'][_normalise_key(attr)]
         else:
-            raise AttributeError(f"{self.__class__.__name__} object has no attribute '{attr}'")
+            raise AttributeError(f"{self.__class__.__name__} "
+                                 f"object has no attribute '{attr}'")
 
     def __delitem__(self, key):
         try:
@@ -172,7 +171,7 @@ class Dixt(MutableMapping):
     def __str__(self):
         return str(self.__dict__['data'])
 
-    def __or__(self, other: Union[Mapping, IterableKeyValuePairs]):
+    def __or__(self, other):
         """Implement union operator for this object.
 
         :returns: ``Dixt`` object
@@ -189,7 +188,7 @@ class Dixt(MutableMapping):
 
         return Dixt(self.dict() | _dictify_kvp(other))
 
-    def __ror__(self, other: Union[Mapping, IterableKeyValuePairs]) -> Dict:
+    def __ror__(self, other) -> Dict:
         """This reverse union operator is called
         when the other object does not support union operator.
         """
@@ -262,10 +261,12 @@ class Dixt(MutableMapping):
             raise ValueError(f'Invalid path: {path}')
         return eval(f"{path.replace('$', 'self')}")
 
-    def is_submap_of(self, other: Union[Mapping, IterableKeyValuePairs]) -> bool:
+    def is_submap_of(self, other) -> bool:
         """Evaluate if all of this object's keys and values are contained
         and equal to the `other`'s, recursively. This is the opposite of
         :func:`is_supermap_of`.
+
+        :param other: Other ``dict``, ``Dixt``, or ``Mapping`` objects to compare to.
         """
         def _is_submap(this, reference):
             for key, value in this.items():
@@ -284,10 +285,12 @@ class Dixt(MutableMapping):
             other = _dictify_kvp(other)
         return _is_submap(self, other)
 
-    def is_supermap_of(self, other: Union[Mapping, IterableKeyValuePairs]) -> bool:
+    def is_supermap_of(self, other) -> bool:
         """Evaluate if all of the `other` object's keys and values are contained
         and equal to this object's, recursively. This is the opposite of
         :func:`is_submap_of`.
+
+        :param other: Other ``dict``, ``Dixt``, or ``Mapping`` objects to compare to.
         """
         return Dixt(other).is_submap_of(self)
 
@@ -331,7 +334,14 @@ class Dixt(MutableMapping):
         """
         return super().popitem()
 
-    def update(self, other: Union[Mapping, IterableKeyValuePairs] = (), /, **kwargs):
+
+    def setdefault(self, key, default=None) -> Any:
+        """Get value associated with `key`. If `key` exists, return ``self[key]``;
+        otherwise, set ``self[key] = default`` then return `default` value.
+        """
+        return super().setdefault(key, default)
+
+    def update(self, other=(), /, **kwargs):
         """Update this object from another ``Mapping`` objects (e.g., ``dict``, ``Dixt``),
         from an iterable key-value pairs, or through keyword arguments.
         """
