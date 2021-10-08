@@ -32,7 +32,7 @@ import json
 
 from collections.abc import KeysView, ItemsView, ValuesView, MutableMapping
 from dataclasses import MISSING
-from typing import Union, Mapping, TypeVar
+from typing import Any, Dict, Union, Mapping, TypeVar
 
 
 __all__ = ['Dixt']
@@ -41,6 +41,36 @@ IterableKeyValuePairs = TypeVar('IterableKeyValuePairs', tuple, list)
 
 
 class Dixt(MutableMapping):
+    """``Dixt`` is an "extended" Python ``dict``, works just like a ``dict``,
+    but with functions additionally not found in ``dict``.
+
+    In the context of ``Mapping`` objects, there are only `keys` and `values`.
+    But in ``Dixt``, a `key` can be accessed and even modified by using the
+    `dot notation`__,
+    which makes it a semi-`attribute`.
+
+    Keys are stored as:
+        * non-normalised
+            These are the literal/original, unchanged keys passed as they are,
+            like in the usual ``dict``.
+
+        * normalised
+            The modified keys, used for comparison when keys are accessed using
+            the dot notation.
+
+    So in the context of this class and its object, `key` and `attribute` can be
+    interchangeable.
+
+    .. note::
+        In effect, ``Dixt`` imposes case-insensitive keys due to the
+        normalisation. For instance, the following keys will be the same:
+
+        * An-Attribute
+        * an_attribute
+        * an attribute
+
+    .. __: https://en.wikipedia.org/wiki/Property_(programming)#Dot_notation
+    """
 
     def __new__(cls, data=None, /, **kwargs):
         spec = dict(data or {}) | kwargs
@@ -50,20 +80,32 @@ class Dixt(MutableMapping):
         return dx
 
     def __init__(self, data=None, /, **kwargs):
-        """Initialise this object with dict,
-        a sequence of key-value pairs, or keyword arguments.
+        """Initialise an empty object, or from another mapping object,
+        sequence of key-value pairs, or keyword arguments.
 
-        :param data: Can be a iterable of key-value pairs,
-                     a dict, another Dixt object
+        :param data: Can be a iterable of key-value pairs, a ``dict``,
+                     another ``Dixt`` object
+        :param kwargs: Additional items which add or update
+                       (if there are same keys) ``data``.
         """
         super().__init__()
         spec = dict(data or {}) | kwargs
         self.__dict__['data'] = _hype(spec)
 
     def __contains__(self, origkey):
+        """``True`` if the this object contains the original (non-normalised) key,
+        otherwise ``False``. This retains the original behaviour of ``dict``.
+        """
         return origkey in self.__dict__['data']
 
     def __delattr__(self, attr):
+        """Remove the key-value entry in this object.
+        Key is specified as normalised.
+
+        :param attr: The key of the entry to be removed.
+
+        :raises AttributeError: When original key is not found.
+        """
         if origkey := self._get_orig_key(attr):
             del self.__dict__['data'][origkey]
             del self.__dict__['keymap'][_normalise_key(attr)]
@@ -95,7 +137,10 @@ class Dixt(MutableMapping):
 
     def __getitem__(self, key):
         key = self._get_orig_key(key) or key
-        return self.__getattr__(key)
+        try:
+            return self.__getattr__(key)
+        except AttributeError:
+            raise KeyError(key)
 
     def __iter__(self):
         return iter(self.__dict__['data'])
@@ -130,7 +175,7 @@ class Dixt(MutableMapping):
     def __or__(self, other: Union[Mapping, IterableKeyValuePairs]):
         """Implement union operator for this object.
 
-        :returns: Dixt object
+        :returns: ``Dixt`` object
         """
         # This function will also be called for in-place operations.
         # So no need to implement __ior__(). For example:
@@ -144,7 +189,7 @@ class Dixt(MutableMapping):
 
         return Dixt(self.dict() | _dictify_kvp(other))
 
-    def __ror__(self, other: Union[Mapping, IterableKeyValuePairs]) -> dict:
+    def __ror__(self, other: Union[Mapping, IterableKeyValuePairs]) -> Dict:
         """This reverse union operator is called
         when the other object does not support union operator.
         """
@@ -155,7 +200,7 @@ class Dixt(MutableMapping):
         return _dictify_kvp(other) | dict(self)
 
     def contains(self, *keys) -> bool:
-        """Evaluate if all enumerated keys exist."""
+        """Evaluate if all enumerated non-normalised keys exist."""
         return all(self.__contains__(k) for k in keys)
 
     def clear(self):
@@ -174,8 +219,8 @@ class Dixt(MutableMapping):
         except KeyError:
             pass
 
-    def dict(self):
-        """Convert this object to dict, with non-normalised keys."""
+    def dict(self) -> Dict:
+        """Convert this object to ``dict``, with non-normalised keys."""
         def _dictify(this):
             if isinstance(this, Dixt):
                 return {key: _dictify(value)
@@ -187,7 +232,7 @@ class Dixt(MutableMapping):
 
         return _dictify(self)
 
-    def get(self, attr, default=None):
+    def get(self, attr, default=None) -> Any:
         """Get the value of the key specified by `attr`.
         If not found, return the default.
         """
@@ -196,13 +241,20 @@ class Dixt(MutableMapping):
         except (KeyError, AttributeError):
             return default or None
 
-    def get_from(self, path: str, /):
+    def get_from(self, path: str, /) -> Any:
         """Get the value associated from the specified path.
+        Path is a 'stringified' direction as would objects
+        be accessed inside Python objects.
 
-        Paths specs ($ is required):
-            $.root_attr
-            $.normalised_attr.get_value_from_this_second_attr
-            $.some_list[1].attr_from_dixt_object_inside_some_list
+        :param path: The direction to the object specified as
+                     ``$.<object>.<another-object>``
+
+        Examples:
+            .. code-block::
+
+                $.root_attr
+                $.normalised_attr.get_value_from_this_second_attr
+                $.some_list[1].attr_from_dixt_object_inside_some_list
         """
         if not isinstance(path, str):
             raise TypeError(f'Invalid path: {path}')
@@ -210,9 +262,10 @@ class Dixt(MutableMapping):
             raise ValueError(f'Invalid path: {path}')
         return eval(f"{path.replace('$', 'self')}")
 
-    def is_submap_of(self, other: Union[Mapping, IterableKeyValuePairs]):
-        """Evaluate if all of this object's keys and values
-        are equal to the other, recursively.
+    def is_submap_of(self, other: Union[Mapping, IterableKeyValuePairs]) -> bool:
+        """Evaluate if all of this object's keys and values are contained
+        and equal to the `other`'s, recursively. This is the opposite of
+        :func:`is_supermap_of`.
         """
         def _is_submap(this, reference):
             for key, value in this.items():
@@ -231,29 +284,30 @@ class Dixt(MutableMapping):
             other = _dictify_kvp(other)
         return _is_submap(self, other)
 
-    def is_supermap_of(self, other: Union[Mapping, IterableKeyValuePairs]):
-        """Evaluate if all of the other object's keys and values
-        are equal to this object, recursively.
+    def is_supermap_of(self, other: Union[Mapping, IterableKeyValuePairs]) -> bool:
+        """Evaluate if all of the `other` object's keys and values are contained
+        and equal to this object's, recursively. This is the opposite of
+        :func:`is_submap_of`.
         """
         return Dixt(other).is_submap_of(self)
 
-    def items(self):
+    def items(self) -> ItemsView:
         """Return a set-like object providing a view
         to this object's key-value pairs.
         """
         return ItemsView(self.__dict__['data'])
 
-    def json(self):
+    def json(self) -> str:
         """Convert this object to JSON string."""
         return json.dumps(self.dict())
 
-    def keys(self):
+    def keys(self) -> KeysView:
         """Return a set-like object providing a view
         to this object's keys.
         """
         return KeysView(self.__dict__['data'])
 
-    def pop(self, attr, default=...):
+    def pop(self, attr, default=..., /) -> Any:
         """Get the value of the attribute, then remove the entry.
 
         :param attr: The attribute to get.
@@ -268,17 +322,18 @@ class Dixt(MutableMapping):
             raise AttributeError(f"Dixt object has no attribute '{attr}'")
         return default
 
-    def set(self, attr, value, /):
-        """Set new or existing `attr` with new `value`.
+    def popitem(self) -> tuple:
+        """Returns a ``tuple`` of key-value pair.
+        Since this function is inherited not from `dict`,
+        LIFO is not guaranteed.
 
-        :param attr: Name of the attribute to modify.
-        :param value: The new value of the attribute.
+        :raises KeyError: If this object is empty.
         """
-        self.__setattr__(attr, value)
+        return super().popitem()
 
     def update(self, other: Union[Mapping, IterableKeyValuePairs] = (), /, **kwargs):
-        """Update this object from another Mapping objects (e.g., dict, Dixt),
-        or from an iterable key-value pairs.
+        """Update this object from another ``Mapping`` objects (e.g., ``dict``, ``Dixt``),
+        from an iterable key-value pairs, or through keyword arguments.
         """
         if not hasattr(other, 'keys'):
             other = _dictify_kvp(other)
@@ -287,7 +342,7 @@ class Dixt(MutableMapping):
             for k, v in container.items():
                 self.__setattr__(k, v)
 
-    def values(self):
+    def values(self) -> ValuesView:
         """Return a set-like object providing a view
         to this object's values.
         """
@@ -295,7 +350,7 @@ class Dixt(MutableMapping):
 
     @staticmethod
     def from_json(json_str, /):
-        """Converts a JSON string to a Dixt object."""
+        """Converts a JSON string to a ``Dixt`` object."""
         return Dixt(json.loads(json_str))  # let json handle errors
 
     def _get_orig_key(self, key):
