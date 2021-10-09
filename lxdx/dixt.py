@@ -40,34 +40,10 @@ __all__ = ['Dixt']
 
 class Dixt(MutableMapping):
     """``Dixt`` is an "extended" Python ``dict``, works just like a ``dict``,
-    but with normalised keys and metadata.
+    but with attribute-accessible keys by normalising keys and metadata.
 
-    In the context of ``Mapping`` objects, there are only `keys` and `values`.
-    But in ``Dixt``, a `key` can be accessed and even modified by using the
-    `dot notation`__,
-    which makes it a semi-`attribute`.
-
-    Keys are stored as:
-        * non-normalised
-            These are the literal/original, unchanged keys passed as they are,
-            like in the usual ``dict``.
-
-        * normalised
-            The modified keys, used for comparison when keys are accessed using
-            the dot notation.
-
-    So in the context of this class and its object, `key` and `attribute` can be
-    interchangeable.
-
-    .. note::
-        In effect, ``Dixt`` imposes case-insensitive keys due to the
-        normalisation. For instance, the following keys will be the same:
-
-        * An-Attribute
-        * an_attribute
-        * an attribute
-
-    .. __: https://en.wikipedia.org/wiki/Property_(programming)#Dot_notation
+    New methods are incorporated, such as conversion from and to JSON,
+    submap/supermap comparison, and others.
     """
 
     def __new__(cls, data=None, /, **kwargs):

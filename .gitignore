@@ -27,3 +27,6 @@ wheels/
 .venv
 env/
 venv/
+
+# docs build
+docs/build
