@@ -225,7 +225,7 @@ class TestDixt(unittest.TestCase):
         self.assertEqual(dx.echo_foxtrot, 'ef')
 
     def test__getattr__dot_notation__raises_error_when_nonexistent(self):
-        self.assertRaises(AttributeError, lambda: self.dixt.nonexistent)
+        self.assertRaises(KeyError, lambda: self.dixt.nonexistent)
 
     def test__getattr__get_method__returns_value_of_existing_attributes(self):
         headers = {'Accept-Encoding': 'gzip',
@@ -333,7 +333,7 @@ class TestDixt(unittest.TestCase):
         self.assertEqual(self.dixt.pop('extra'), 'info')
         self.assertNotIn('extra', self.dixt)
         self.assertNotIn('extra', self.dixt.__dict__['keymap'])
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(KeyError):
             self.dixt.pop('extra')
         self.assertEqual(self.dixt.pop('extra', 'default-value'), 'default-value')
 
@@ -450,7 +450,7 @@ class TestDixt(unittest.TestCase):
         self.assertNotIn('extra', self.dixt)
 
     def test__delattr__raises_error__attribute_is_not_found(self):
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(KeyError):
             del self.dixt.not_found
 
     def test__keys(self):

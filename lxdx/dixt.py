@@ -102,20 +102,17 @@ class Dixt(MutableMapping):
 
         :param attr: The key of the entry to be removed.
 
-        :raises AttributeError: When original key is not found.
+        :raises KeyError: When original key is not found.
         """
         if origkey := self._get_orig_key(attr):
             del self.__dict__['data'][origkey]
             del self.__dict__['keymap'][_normalise_key(attr)]
         else:
-            raise AttributeError(f"{self.__class__.__name__} "
-                                 f"object has no attribute '{attr}'")
+            raise KeyError(f"{self.__class__.__name__} "
+                           f"object has no attribute '{attr}'")
 
     def __delitem__(self, key):
-        try:
-            self.__delattr__(key)
-        except AttributeError:
-            raise KeyError(key)
+        self.__delattr__(key)
 
     def __eq__(self, other):
         if isinstance(other, Dixt):
@@ -131,15 +128,14 @@ class Dixt(MutableMapping):
         if origkey := self._get_orig_key(key):
             return self.__dict__['data'][origkey]
 
-        # This lets the super class handle the attribute error
-        return super().__getattribute__(key)
+        try:
+            return super().__getattribute__(key)
+        except AttributeError:
+            raise KeyError(key)
 
     def __getitem__(self, key):
         key = self._get_orig_key(key) or key
-        try:
-            return self.__getattr__(key)
-        except AttributeError:
-            raise KeyError(key)
+        return self.__getattr__(key)
 
     def __iter__(self):
         return iter(self.__dict__['data'])
@@ -234,10 +230,12 @@ class Dixt(MutableMapping):
     def get(self, attr, default=None) -> Any:
         """Get the value of the key specified by `attr`.
         If not found, return the default.
+
+        Similar method: :meth:`setdefault`.
         """
         try:
             return self.__getattr__(attr)
-        except (KeyError, AttributeError):
+        except KeyError:
             return default or None
 
     def get_from(self, path: str, /) -> Any:
@@ -310,19 +308,20 @@ class Dixt(MutableMapping):
         """
         return KeysView(self.__dict__['data'])
 
-    def pop(self, attr, default=..., /) -> Any:
-        """Get the value of the attribute, then remove the entry.
+    def pop(self, key, default=..., /) -> Any:
+        """Get the value associated with the `key`, then remove the item.
 
-        :param attr: The attribute to get.
-        :param default: Will be returned if attribute is not found.
-        :raises AttributeError: If attribute is not found
-                                and default value is not specified.
+        The `default` value will be returned if `key` is not found.
+
+        :raises KeyError: If attribute is not found
+                          and default value (other than ``Ellipsis``)
+                          is not specified.
         """
-        if retval := self.get(attr):
-            self.__delattr__(attr)
+        if retval := self.get(key):
+            self.__delattr__(key)
             return retval
         if default == Ellipsis:
-            raise AttributeError(f"Dixt object has no attribute '{attr}'")
+            raise KeyError(f"Dixt object has no key '{key}'")
         return default
 
     def popitem(self) -> tuple:
@@ -338,6 +337,8 @@ class Dixt(MutableMapping):
     def setdefault(self, key, default=None) -> Any:
         """Get value associated with `key`. If `key` exists, return ``self[key]``;
         otherwise, set ``self[key] = default`` then return `default` value.
+
+        Similar method: :meth:`get`.
         """
         return super().setdefault(key, default)
 
