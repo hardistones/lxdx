@@ -313,6 +313,10 @@ class TestDixt(unittest.TestCase):
         dx[2] = dx[1] + dx[3]
         self.assertEqual(dx, {1: 100, 2: 103, 3: 3})
 
+    def test__setitem__raises_error_when_adding_similarly_formatted_keys(self):
+        with self.assertRaises(KeyError):
+            self.dixt.headers['content_type'] = 'new-type'
+
     def test__setitem__nonexistent_attributes(self):
         dx = Dixt()
         dx['a'] = 1

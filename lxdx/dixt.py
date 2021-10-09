@@ -138,6 +138,11 @@ class Dixt(MutableMapping):
             self.__dict__['data'][attr] = _hype(value)
 
     def __setitem__(self, key, value):
+        if origkey := self._get_orig_key(key):
+            if key != origkey:
+                # No two keys should have the same normalised key,
+                # or the new key will overwrite the other original key.
+                raise KeyError(f'Cannot add "{key}" overwriting "{origkey}"')
         self.__setattr__(key, value)
 
     def __str__(self):
