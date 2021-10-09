@@ -40,7 +40,7 @@ __all__ = ['Dixt']
 
 class Dixt(MutableMapping):
     """``Dixt`` is an "extended" Python ``dict``, works just like a ``dict``,
-    but with methods additionally not found in ``dict``.
+    but with normalised keys and metadata.
 
     In the context of ``Mapping`` objects, there are only `keys` and `values`.
     But in ``Dixt``, a `key` can be accessed and even modified by using the

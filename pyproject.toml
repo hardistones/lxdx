@@ -2,13 +2,14 @@
 name = "lxdx"
 version = "0.1-b2"
 authors = ["Hardy Stones <hardistones@hotmail.com>"]
+description = "Just an extended Python dict with attribute-accessibility, extra methods, and metadata"
 homepage = "https://github.com/hardistones/lxdx"
-description = ""
-license = "MIT License"
-readme = "README.md"
+documentation = "https://hardistones.github.io/lxdx"
+license = "3-Clause BSD License"
+readme = "README.rst"
 classifiers = [
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: 3-Clause BSD License",
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.9",
