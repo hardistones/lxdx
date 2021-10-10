@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lxdx"
-version = "0.1b2"
+version = "0.2a1"
 authors = ["Hardy Stones <hardistones@hotmail.com>"]
 description = "Just an extended Python dict with attribute-accessibility, extra methods, and metadata"
 homepage = "https://github.com/hardistones/lxdx"
@@ -9,7 +9,7 @@ license = "3-Clause BSD License"
 readme = "README.rst"
 classifiers = [
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: 3-Clause BSD License",
+    "License :: OSI Approved :: BSD License",
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.9",
