@@ -1,14 +1,15 @@
 [tool.poetry]
 name = "lxdx"
-version = "0.1b1.post1"
+version = "0.1"
 authors = ["Hardy Stones <hardistones@hotmail.com>"]
+description = "Just an extended Python dict with attribute-accessibility, extra methods, and metadata"
 homepage = "https://github.com/hardistones/lxdx"
-description = ""
-license = "MIT License"
-readme = "README.md"
+documentation = "https://hardistones.github.io/lxdx"
+license = "3-Clause BSD License"
+readme = "README.rst"
 classifiers = [
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: BSD License",
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.9",
@@ -31,6 +32,9 @@ python = "^3.9"
 
 [tool.poetry.dev-dependencies]
 assertpy = "*"
+flake8 = "*"
+importlib-metadata = "*"
+pylint = "*"
 pytest = "*"
 pytest-cov = "*"
 pytest-sugar = "*"
@@ -39,8 +43,8 @@ pytest-xdist = "*"
 pytest-random-order = "*"
 pytest-timeout = "*"
 pytest-mccabe = "*"
-pylint = "*"
-flake8 = "*"
+sphinx = "4.2.0"
+furo = "*"
 
 
 [build-system]

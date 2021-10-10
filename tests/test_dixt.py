@@ -1,3 +1,33 @@
+"""
+Copyright (c) 2021, @github.com/hardistones
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors
+   may be used to endorse or promote products derived from this software without
+   specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+"""
+
 import json
 import unittest
 
@@ -195,8 +225,7 @@ class TestDixt(unittest.TestCase):
         self.assertEqual(dx.echo_foxtrot, 'ef')
 
     def test__getattr__dot_notation__raises_error_when_nonexistent(self):
-        with self.assertRaises(AttributeError):
-            _ = self.dixt.nonexistent
+        self.assertRaises(KeyError, lambda: self.dixt.nonexistent)
 
     def test__getattr__get_method__returns_value_of_existing_attributes(self):
         headers = {'Accept-Encoding': 'gzip',
@@ -208,6 +237,16 @@ class TestDixt(unittest.TestCase):
         self.assertEqual(self.dixt.get('ghost', -1), -1)
         self.assertEqual(self.dixt.headers.get('Lost-Item', object), object)
 
+    def test__setattr__builtin_function(self):
+        setattr(self.dixt, 'name', 'value')
+        self.assertEqual(self.dixt.name, 'value')
+        self.assertEqual(self.dixt['name'], 'value')
+
+    def test__setattr__builtin_function__should_normalise_attribute_name(self):
+        setattr(self.dixt, 'My Name', 'value')
+        self.assertEqual(self.dixt.my_name, 'value')
+        self.assertEqual(self.dixt['My Name'], 'value')
+
     def test__setattr__dot_notation__existing_attributes(self):
         self.dixt.extra = value = 'new value'
         self.assertEqual(self.dixt.extra, value)
@@ -218,13 +257,21 @@ class TestDixt(unittest.TestCase):
         self.assertEqual(self.dixt.body['C-D'], value)
 
     def test__setattr__dot_notation__nonexistent_attributes(self):
-        self.dixt.abcd = value = 123456
-        self.assertTrue('abcd' in self.dixt)
-        self.assertEqual(self.dixt.abcd, value)
-        self.assertEqual(self.dixt['abcd'], value)
+        self.dixt.name = value = 123456
+        self.assertTrue('name' in self.dixt)
+        self.assertEqual(self.dixt.name, value)
+        self.assertEqual(self.dixt['name'], value)
+
+    def test__setattr__dot_notation__takes_the_attribute_verbatim(self):
+        self.dixt.something_new = 123456
+        self.assertTrue('something_new' in self.dixt)
+        self.assertTrue('something-new' not in self.dixt)
+        self.assertTrue('something new' not in self.dixt)
+        self.assertTrue('Something-New' not in self.dixt)
 
     def test__setattr__dot_notation__another_dict_or_dixt(self):
         self.dixt.extra = {'alpha': 1}
+        self.assertIsInstance(self.dixt.extra, Dixt)
         self.assertEqual(self.dixt.extra, Dixt(alpha=1))
         self.assertEqual(self.dixt.extra.alpha, 1)
 
@@ -234,7 +281,7 @@ class TestDixt(unittest.TestCase):
 
     def test__setattr__value_is_MISSING__existing_attribute_should_be_removed(self):
         self.dixt.headers = MISSING
-        self.dixt.set('body', MISSING)
+        setattr(self.dixt, 'body', MISSING)
         self.assertEqual(self.dixt, {'extra': 'info'})
 
     def test__setattr__value_is_MISSING__nonexistent_attribute_should_be_ignored(self):
@@ -242,25 +289,10 @@ class TestDixt(unittest.TestCase):
         self.assertTrue('will_not_exist' not in self.dixt)
         self.assertIsNone(self.dixt.get('will_not_exist'))
 
-        self.dixt.set('wont_exist', MISSING)
+        setattr(self.dixt, 'wont_exist', MISSING)
         self.assertTrue('wont_exist' not in self.dixt)
         self.assertIsNone(self.dixt.get('wont_exist'))
         self.assertEqual(self.dixt.get('wont_exist', 'default-value'), 'default-value')
-
-    def test__setattr__set_method__existing_attributes(self):
-        self.dixt.set('headers', 1)
-        self.dixt.set('body', 2)
-        self.assertEqual(self.dixt, {'headers': 1, 'body': 2, 'extra': 'info'})
-
-    def test__setattr__set_method__nonexistent_attributes(self):
-        value = [1, '2']
-        self.dixt.set('To-Exist', value)
-        self.dixt.set(2, 3)
-        self.assertIn('To-Exist', self.dixt)
-        self.assertIn(2, self.dixt)
-        self.assertEqual(self.dixt.to_exist, value)
-        self.assertEqual(self.dixt['To-Exist'], value)
-        self.assertEqual(self.dixt[2], 3)
 
     def test__getitem__gets_value_of_existing_items(self):
         self.assertEqual(self.dixt['headers']['Accept-Encoding'], 'gzip')
@@ -268,7 +300,7 @@ class TestDixt(unittest.TestCase):
         self.assertEqual(self.dixt['extra'], 'info')
 
     def test__getitem__raises_attribute_error_when_missing(self):
-        self.assertRaises(AttributeError, lambda: self.dixt['missing_attribute'])
+        self.assertRaises(KeyError, lambda: self.dixt['missing_attribute'])
 
     def test__setitem__existing_attributes(self):
         dx = Dixt(a=1, b=2, c=3)
@@ -280,6 +312,10 @@ class TestDixt(unittest.TestCase):
         dx[1] *= 100
         dx[2] = dx[1] + dx[3]
         self.assertEqual(dx, {1: 100, 2: 103, 3: 3})
+
+    def test__setitem__raises_error_when_adding_similarly_formatted_keys(self):
+        with self.assertRaises(KeyError):
+            self.dixt.headers['content_type'] = 'new-type'
 
     def test__setitem__nonexistent_attributes(self):
         dx = Dixt()
@@ -301,7 +337,7 @@ class TestDixt(unittest.TestCase):
         self.assertEqual(self.dixt.pop('extra'), 'info')
         self.assertNotIn('extra', self.dixt)
         self.assertNotIn('extra', self.dixt.__dict__['keymap'])
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(KeyError):
             self.dixt.pop('extra')
         self.assertEqual(self.dixt.pop('extra', 'default-value'), 'default-value')
 
@@ -418,7 +454,7 @@ class TestDixt(unittest.TestCase):
         self.assertNotIn('extra', self.dixt)
 
     def test__delattr__raises_error__attribute_is_not_found(self):
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(KeyError):
             del self.dixt.not_found
 
     def test__keys(self):
@@ -465,7 +501,7 @@ class TestDixt(unittest.TestCase):
         #                 the dict is not converted to a Dixt object.
         #                 Should wrap with Dixt first
         #                 before appending/adding to the list.
-        # self.hd.body.e[1].del_ta = 'δ'
+        # self.dixt.body.e[1].del_ta = 'δ'
 
         self.dixt.body.e[1] = Dixt({'del-ta': 'δ'})
         self.assertEqual(self.dixt.body.e[1], {'del-ta': 'δ'})
@@ -483,8 +519,9 @@ class TestDixt(unittest.TestCase):
 
     def test__get_from__incorrect_path(self):
         queries = [
-            'any-string',
-            123
+            'any.string',
+            123,
+            object()
         ]
         for path in queries:
             with self.assertRaises(Exception):
@@ -525,6 +562,26 @@ class TestDixt(unittest.TestCase):
             with self.assertRaises(Exception):
                 Dixt().is_submap_of(criterion)
 
+    def test__popitem(self):
+        """Testing inherited function from MutableMapping."""
+        dx = Dixt(a=1, b=2, c=3)
+        # not LIFO as with dict
+        self.assertEqual(dx.popitem(), ('a', 1))
+
+    def test__setdefault__sets_value_to_nonexistent_key_from_default_value(self):
+        """Testing inherited function from MutableMapping."""
+        self.assertTrue('extra-extra' not in self.dixt)
+        self.dixt.setdefault('extra-extra', 'extra-value')
+        self.assertEqual(self.dixt.extra_extra, 'extra-value')
+
+        self.assertTrue('to-exist' not in self.dixt)
+        self.dixt.setdefault('to-exist')
+        self.assertEqual(self.dixt.to_exist, None)
+
+    def test__setdefault__does_not_overwrite_existing_value(self):
+        self.dixt.setdefault('extra', 'another-value')
+        self.assertEqual(self.dixt.extra, 'info')
+
     def _assert_obj_tree_has_no_dixt_object(self, obj):
         self.assertNotIsInstance(obj, Dixt)
         if isinstance(obj, dict):
@@ -537,106 +594,3 @@ class TestDixt(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-
-# dx.immute()  # includes __delitem__
-# dx.body.names[0].extend_spec() -- works for UserList
-
-# print('===')
-# test = Dixt(**{
-#     'headers': {
-#         'date': str,
-#         'content_type': str,
-#         'transfer_encoding': str,
-#         'connection': str,
-#         'vary': str,
-#         'status': int,
-#         'x_request_uuid': str,
-#         'strict_transport_security': str,
-#         'content_encoding': str
-#     },
-#     'body': [
-#         {
-#             'group_name': str,
-#             'name': str,
-#             'href': str,
-#             'kind': str,
-#             'value': int,
-#             'created_by': {
-#               'id': int,
-#               'name': str,
-#               'email': str
-#             },
-#             'timestamps': {
-#               'created_at': str,
-#               'updated_at': str
-#             }
-#         },
-#         {
-#             'name': str,
-#             'href': '/api/catalog/accounts/60073/account_preferences/primary_color_border',
-#             'kind': 'self_service#account_preference',
-#             'value': '#0f4e07',
-#             'group_name': 'portal_customization',
-#             'created_by': {
-#               'id': '12345',
-#               'name': 'Madison Bumgarner',
-#               'email': 'ace@rightscale.com'
-#             },
-#             'timestamps': {
-#               'created_at': '2015-04-08T04:24:25.499+00:00',
-#               'updated_at': '2015-04-08T04:24:25.499+00:00'
-#             }
-#         }
-#     ]
-#
-# })
-#
-# test2 = Dixt(**{
-#     'headers': {
-#         'date': str,
-#         'content_type': str,
-#         'transfer_encoding': str,
-#         'connection': str,
-#         'vary': str,
-#         'status': int,
-#         'x_request_uuid': str,
-#         'strict_transport_security': str,
-#         'content_encoding': str
-#     },
-#     'body': [
-#         {
-#             'name': str,
-#             'href': str,
-#             'kind': str,
-#             'value': int,
-#             'group_name': str,
-#             'created_by': {
-#               'id': int,
-#               'name': str,
-#               'email': str
-#             },
-#             'timestamps': {
-#               'created_at': str,
-#               'updated_at': str
-#             }
-#         },
-#         {
-#             'name': str,
-#             'href': '/api/catalog/accounts/60073/account_preferences/primary_color_border',
-#             'kind': 'self_service#account_preference',
-#             'value': '#0f4e07',
-#             'group_name': 'portal_customization',
-#             'created_by': {
-#               'id': '12345',
-#               'name': 'Madison Bumgarner',
-#               'email': 'ace@rightscale.com'
-#             },
-#             'timestamps': {
-#               'created_at': '2015-04-08T04:24:25.499+00:00',
-#               'updated_at': '2015-04-08T04:24:25.499+00:00'
-#             }
-#         }
-#     ]
-#
-# })
-#
