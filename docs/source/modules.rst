@@ -1,4 +1,4 @@
-lxdx reference
+lxdx Reference
 ==============
 
 .. toctree::

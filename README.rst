@@ -5,14 +5,14 @@ lxdx
 Other than the usual ``dict`` operations, functions and methods,
 some useful functions are incorporated as well.
 
-Only supports Python 3.9+, due to the usage of the `union operator`__ for ``dict``.
+Only supports Python 3.9+, due to the usage of the `union operator`_ for ``dict``.
 
 Why this project?
 -----------------
 * Hobbies and curiosities. Just for the fun of programming.
 * ``dataclass`` is not cut for modelling hierarchical data.
-* Brackets when accessing multi-layer data is too many. `Dot notation`__ may be a cleaner way.
-* Introduce utility functions like ``get_from(path)``, inspired from `JsonPath`__, for programmability.
+* Brackets when accessing multi-layer data is too many. `Dot notation`_ may be a cleaner way.
+* Introduce utility functions like ``get_from(path)``, inspired from `JsonPath`_, for programmability.
 
 Installation
 ------------
@@ -100,6 +100,6 @@ This project and all its files are licensed under the 3-Clause BSD License.
 
 
 .. References
-.. __: https://www.python.org/dev/peps/pep-0584
-.. __: https://en.wikipedia.org/wiki/Property_(programming)#Dot_notation
-.. __: https://github.com/json-path/JsonPath
+.. _union operator: https://www.python.org/dev/peps/pep-0584
+.. _dot notation: https://en.wikipedia.org/wiki/Property_(programming)#Dot_notation
+.. _JsonPath: https://github.com/json-path/JsonPath

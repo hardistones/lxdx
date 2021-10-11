@@ -234,8 +234,8 @@ class TestDixt(unittest.TestCase):
         self.assertEqual(self.dixt.headers.get('Accept-Encoding'), 'gzip')
 
     def test__getattr__get_method__returns_default_value_of_nonexistent_attributes(self):
-        self.assertEqual(self.dixt.get('ghost', -1), -1)
-        self.assertEqual(self.dixt.headers.get('Lost-Item', object), object)
+        self.assertEqual(self.dixt.get('ghost', default=-1), -1)
+        self.assertEqual(self.dixt.headers.get('Lost-Item', default=object), object)
 
     def test__setattr__builtin_function(self):
         setattr(self.dixt, 'name', 'value')
@@ -292,7 +292,7 @@ class TestDixt(unittest.TestCase):
         setattr(self.dixt, 'wont_exist', MISSING)
         self.assertTrue('wont_exist' not in self.dixt)
         self.assertIsNone(self.dixt.get('wont_exist'))
-        self.assertEqual(self.dixt.get('wont_exist', 'default-value'), 'default-value')
+        self.assertEqual(self.dixt.get('wont_exist', default='default-value'), 'default-value')
 
     def test__getitem__gets_value_of_existing_items(self):
         self.assertEqual(self.dixt['headers']['Accept-Encoding'], 'gzip')
@@ -413,6 +413,18 @@ class TestDixt(unittest.TestCase):
         self.assertTrue(dx.contains(2, 1))
         self.assertFalse(dx.contains('A-a', 'a-a'))
 
+    def test__contains__assert_all_is_false(self):
+        result = self.dixt.contains('headers', 'body', assert_all=False)
+        self.assertIsInstance(result, tuple)
+        self.assertTrue(all(result))
+
+        result = self.dixt.contains('headers', 'ghost', assert_all=False)
+        self.assertIsInstance(result, tuple)
+        self.assertEqual(result, (True, False))
+
+        result = self.dixt.contains('nonexistent', assert_all=False)
+        self.assertEqual(result, (False,))
+
     def test__iter(self):
         self.assertIsInstance(iter(self.dixt), type(iter({}.keys())))
 
@@ -517,7 +529,7 @@ class TestDixt(unittest.TestCase):
         for path, value in queries:
             self.assertEqual(self.dixt.get_from(path), value)
 
-    def test__get_from__incorrect_path(self):
+    def test__get_from__invalid_path(self):
         queries = [
             'any.string',
             123,
@@ -526,6 +538,13 @@ class TestDixt(unittest.TestCase):
         for path in queries:
             with self.assertRaises(Exception):
                 self.dixt.get_from(path)
+
+    def test__get_from__raises_error_when_key_is_not_found(self):
+        with self.assertRaises(KeyError):
+            self.dixt.get_from('$.headers.nonexistent')
+
+        with self.assertRaises(KeyError):
+            self.dixt.get_from('$.not_heading.nonexistent')
 
     def test__json__conversion_to_json_format(self):
         json_equivalent = json.dumps(self.dict_equiv)
