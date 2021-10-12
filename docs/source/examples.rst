@@ -3,7 +3,7 @@ Examples
 
 Listed here are some of the few operations ``Dixt`` can do.
 
-.. note::
+.. tip::
     A great resource for ``Dixt``'s functions and operations is maybe its `unit test`__.
 
 .. __: https://github.com/hardistones/lxdx/blob/dev/tests/test_dixt.py
@@ -123,34 +123,85 @@ is also handled.
     assert 'inside_two' not in dx.something
 
 
-Dixt methods
-------------
+Notable Dixt methods
+--------------------
 
-:py:meth:`contains() <lxdx.Dixt.contains>`
+:py:meth:`contains(*keys, assert_all=True) <lxdx.Dixt.contains>`
 
-WIP
+This is a convenience method to evaluate multiple keys at once. This has the
+same effect if the ``in`` operator is used multiple times.
 
-|
-
-:py:meth:`get_from() <lxdx.Dixt.get_from>`
-
-WIP
-
-|
-
-:py:meth:`is_submap_of() <lxdx.Dixt.is_submap_of>`
-
-:py:meth:`is_supermap_of() <lxdx.Dixt.is_supermap_of>`
-
-WIP
+.. note::
+    Non-normalised keys are only accepted to preserve the behaviour of the
+    operator ``in``, as is used in mappings and sequences.
 
 |
 
-:py:meth:`from_json() <lxdx.Dixt.from_json>`
+:py:meth:`get(*attrs, default=None) <lxdx.Dixt.get>`
+
+This method, unlike in ``dict``, supports multiple arguments. The `attrs`
+argument can accept normalised or non-normalised keys.
+
+The other difference from the usual usage of this method in ``dict`` is that,
+the keyword argument `default` should be always specified when putting
+default values other than ``None``, or else, all the arguments will be treated
+as `attrs`.
+
+.. seealso::
+    :py:meth:`setdefault(key, default=None) <lxdx.Dixt.setdefault>`
+
+|
+
+:py:meth:`get_from(path) <lxdx.Dixt.get_from>`
+
+For further programmability, an item can be accessed by a 'stringified'
+path to the key, formatted as
+
+.. code-block::
+
+    $.<key>.{series-of-keys}.<target-key>
+
+where ``$`` is a required placeholder. The keys must be specified as normalised.
+
+.. code-block:: python
+
+    assert dx.get_from('$.group.name') == dx.group.name
+    assert dx.group.get_from('$.name') == dx.group.name
+
+    dx.get_from('$.some_list[1].key_from_dixt_object_inside_some_list')
+
+|
+
+:py:meth:`is_submap_of(other) <lxdx.Dixt.is_submap_of>`
+
+:py:meth:`is_supermap_of(other) <lxdx.Dixt.is_supermap_of>`
+
+These two complementary methods act the same as subset and superset in ``set``.
+The items are strictly evaluated between compared objects, with the calling
+object as basis/reference when calling ``is_submap_of()``; and the `other` object
+as basis when calling ``is_supermap_of()``.
+
+.. code-block:: python
+
+    months = ['Jan', 'Feb', 'Mar']
+    week = ['Mon', 'Tue', 'Wed']
+    cal = {'months': months, 'week': week}
+
+    dxc, dxm, dxw = Dixt(cal), Dixt(months=months), {'week': week}
+
+    assert dxm.is_submap_of(dxc)
+    assert dxc.is_supermap_of(dxw)
+
+    # both lists must be equal
+    assert dxc.is_supermap_of(Dixt(week=['Mon'])) == False
+
+|
+
+:py:meth:`from_json(json_str) <lxdx.Dixt.from_json>`
 
 :py:meth:`json() <lxdx.Dixt.json>`
 
-Conversion from and to JSON string.
+These methods are included to ease up conversion from and to JSON string.
 
 .. code-block:: python
 

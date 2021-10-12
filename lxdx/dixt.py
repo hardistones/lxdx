@@ -32,7 +32,7 @@ import json
 
 from collections.abc import KeysView, ItemsView, ValuesView, MutableMapping
 from dataclasses import MISSING
-from typing import Any, Dict, Mapping
+from typing import Any, Dict, Mapping, Union, Tuple
 
 
 __all__ = ['Dixt']
@@ -175,9 +175,20 @@ class Dixt(MutableMapping):
         # Call dict() to avoid maximum recursion error
         return _dictify_kvp(other) | dict(self)
 
-    def contains(self, *keys) -> bool:
-        """Evaluate if all enumerated non-normalised keys exist."""
-        return all(self.__contains__(k) for k in keys)
+    def contains(self, *keys, assert_all=True) -> Union[bool, Tuple]:
+        """Evaluate if all enumerated keys exist.
+
+        To preserve the behaviour of the operator ``in`` in Python mappings
+        and sequences, this method will only accept **non-normalised** keys.
+
+        :param keys: One or more non-normalised keys to evaluate existence of.
+        :param assert_all: If ``True`` (default), assert that all keys are found,
+                           returning a ``bool`` value. If ``False``, return a
+                           ``tuple`` of boolean values corresponding to each
+                           key whether it is found or not.
+        """
+        result = (self.__contains__(k) for k in keys)
+        return all(result) if assert_all else tuple(result)
 
     def clear(self):
         """Remove all items in this object."""
@@ -208,31 +219,58 @@ class Dixt(MutableMapping):
 
         return _dictify(self)
 
-    def get(self, attr, default=None) -> Any:
-        """Get the value of the key specified by `attr`.
-        If not found, return the default.
+    def get(self, *attrs, default=None) -> Any:
+        """Get the items from a sequence of `attrs`.
+
+        :param attrs: One or more normalised or non-normalised keys to get items of.
+        :param default: Use as replacement value for all keys not found
+                        if set with a non-``list``/``tuple`` value.
+                        If ``list`` or ``tuple``, a one-to-one correspondence
+                        of values to `attrs` when not found.
+
+        :returns: A ``tuple`` of associated item of the `attrs`, replacing items
+                  of any key not found with the `default`.
+
+                  Except when ``len(attrs) == 1``, in which the method
+                  returns the actual item and not ``tuple``.
+
+        :raises ValueError: When ``len(default) != len(attrs)``, only when
+                            default is a ``list``/``tuple``.
 
         Similar method: :meth:`setdefault`.
         """
-        try:
-            return self.__getattr__(attr)
-        except KeyError:
-            return default or None
+        if isinstance(default, (tuple, list)):
+            if len(default) != len(attrs):
+                raise ValueError(f'Length of {attrs} and {default} not equal.')
+
+        default = [default] * len(attrs)
+        result = []
+
+        for i, key in enumerate(attrs):
+            try:
+                result.append(self.__getattr__(key))
+            except KeyError:
+                result.append(default[i])
+
+        return result if len(result) > 1 else result[0]
 
     def get_from(self, path: str, /) -> Any:
-        """Get the value associated from the specified path.
-        Path is a 'stringified' direction as would objects
-        be accessed inside Python objects.
+        """Get the item from the specified path of the key.
+        Path is the 'stringified' attribute-style accessibility.
 
-        :param path: The direction to the object specified as
-                     ``$.<object>.<another-object>``
+        :param path: The direction to the target item specified by
+                     ``$.<key>.{...}.<target-key>``, where
+                     ``$`` points to the object where this method is called.
+                     The series of keys must be the normalised keys.
+
+        :raises TypeError, ValueError: Invalid path.
+        :raises KeyError: When key is not found.
 
         Examples:
             .. code-block::
 
-                $.root_attr
-                $.normalised_attr.get_value_from_this_second_attr
-                $.some_list[1].attr_from_dixt_object_inside_some_list
+                dixt.get_from('$.group.name')  # $ points to dixt
+                dixt.group.get_from('$.name')  # $ points to group
         """
         if not isinstance(path, str):
             raise TypeError(f'Invalid path: {path}')
@@ -342,7 +380,7 @@ class Dixt(MutableMapping):
 
     @staticmethod
     def from_json(json_str, /):
-        """Converts a JSON string to a ``Dixt`` object."""
+        """Convert a JSON string to a ``Dixt`` object."""
         return Dixt(json.loads(json_str))  # let json handle errors
 
     def _get_orig_key(self, key):

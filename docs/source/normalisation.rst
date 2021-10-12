@@ -42,7 +42,7 @@ or
 Caveat
 ------
 
-.. caution::
+.. important::
     In effect, ``Dixt`` imposes case-insensitive keys due to the
     normalisation. For instance, the following keys will be the same:
 

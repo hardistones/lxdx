@@ -38,7 +38,7 @@ jobs:
           echo ${{steps.get-current-branch.outputs.branch}}
 
       - name: Publish packages to test.pypi.org
-        if: github.event_name != 'release'
+        if: github.event.release.target_commitish == 'dev' || github.event.release.prerelease
         uses: pypa/gh-action-pypi-publish@v1.4.2
         with:
           repository_url: https://test.pypi.org/legacy/
@@ -47,7 +47,7 @@ jobs:
           packages_dir: dist/
 
       - name: Publish packages to pypi.org
-        if: github.event_name == 'release'
+        if: github.event.release.target_commitish == 'main' && !github.event.release.prerelease
         uses: pypa/gh-action-pypi-publish@v1.4.2
         with:
           user: __token__
