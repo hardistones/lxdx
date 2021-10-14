@@ -49,8 +49,8 @@ class Dixt(MutableMapping):
     def __new__(cls, data=None, /, **kwargs):
         spec = dict(data or {}) | kwargs
         dx = super().__new__(cls)
-        dx.__dict__['keymap'] = {_normalise_key(key): key
-                                 for key in spec.keys()}
+        dx.__dict__['__keymap__'] = {_normalise_key(key): key
+                                     for key in spec.keys()}
         return dx
 
     def __init__(self, data=None, /, **kwargs):
@@ -64,13 +64,14 @@ class Dixt(MutableMapping):
         """
         super().__init__()
         spec = dict(data or {}) | kwargs
-        self.__dict__['data'] = _hype(spec)
+        self.__dict__['__data__'] = _hype(spec)
+        self.__dict__['__keymeta__'] = {}
 
     def __contains__(self, origkey):
         """``True`` if the this object contains the original (non-normalised) key,
         otherwise ``False``. This retains the original behaviour of ``dict``.
         """
-        return origkey in self.__dict__['data']
+        return not _contents(self.__data__, origkey)[1]
 
     def __delattr__(self, attr):
         """Remove the key-value entry in this object.
@@ -80,9 +81,9 @@ class Dixt(MutableMapping):
 
         :raises KeyError: When original key is not found.
         """
-        if origkey := self._get_orig_key(attr):
-            del self.__dict__['data'][origkey]
-            del self.__dict__['keymap'][_normalise_key(attr)]
+        if origkey := self.__get_orig_key(attr):
+            del self.__data__[origkey]
+            del self.__keymap__[_normalise_key(attr)]
         else:
             raise KeyError(f"{self.__class__.__name__} "
                            f"object has no attribute '{attr}'")
@@ -92,17 +93,17 @@ class Dixt(MutableMapping):
 
     def __eq__(self, other):
         if isinstance(other, Dixt):
-            return self.__dict__['data'].__eq__(other.__dict__['data'])
+            return self.__data__.__eq__(other.__data__)
         if isinstance(other, Mapping):
-            return self.__dict__['data'].__eq__(other)
+            return self.__data__.__eq__(other)
         try:
-            return self.__dict__['data'].__eq__(_dictify_kvp(other))
+            return self.__data__.__eq__(_dictify_kvp(other))
         except ValueError:
             return False
 
     def __getattr__(self, key):
-        if origkey := self._get_orig_key(key):
-            return self.__dict__['data'][origkey]
+        if origkey := self.__get_orig_key(key):
+            return self.__data__[origkey]
 
         try:
             return super().__getattribute__(key)
@@ -110,14 +111,14 @@ class Dixt(MutableMapping):
             raise KeyError(key)
 
     def __getitem__(self, key):
-        key = self._get_orig_key(key) or key
+        key = self.__get_orig_key(key) or key
         return self.__getattr__(key)
 
     def __iter__(self):
-        return iter(self.__dict__['data'])
+        return iter(self.__data__)
 
     def __len__(self):
-        return len(self.__dict__['data'])
+        return len(self.__data__)
 
     def __repr__(self):
         return self.__str__()
@@ -129,16 +130,16 @@ class Dixt(MutableMapping):
             finally:
                 return
 
-        self.__dict__['keymap'][_normalise_key(attr)] = attr
+        self.__keymap__[_normalise_key(attr)] = attr
         if isinstance(value, Dixt):
-            self.__dict__['data'][attr] = value
+            self.__data__[attr] = value
         elif isinstance(value, dict):
-            self.__dict__['data'][attr] = Dixt(value)
+            self.__data__[attr] = Dixt(value)
         else:
-            self.__dict__['data'][attr] = _hype(value)
+            self.__data__[attr] = _hype(value)
 
     def __setitem__(self, key, value):
-        if origkey := self._get_orig_key(key):
+        if origkey := self.__get_orig_key(key):
             if key != origkey:
                 # No two keys should have the same normalised key,
                 # or the new key will overwrite the other original key.
@@ -146,7 +147,7 @@ class Dixt(MutableMapping):
         self.__setattr__(key, value)
 
     def __str__(self):
-        return str(self.__dict__['data'])
+        return str(self.__data__)
 
     def __or__(self, other):
         """Implement union operator for this object.
@@ -187,22 +188,22 @@ class Dixt(MutableMapping):
                            ``tuple`` of boolean values corresponding to each
                            key whether it is found or not.
         """
-        result = (self.__contains__(k) for k in keys)
-        return all(result) if assert_all else tuple(result)
+        result, _ = _contents(self.__data__, *keys)
+        return all(result) if assert_all else result
 
     def clear(self):
         """Remove all items in this object."""
         try:
             while True:
                 # proper disposal
-                self.__dict__['data'].popitem()
+                self.__data__.popitem()
         except KeyError:
             pass
 
         try:
             while True:
                 # proper disposal
-                self.__dict__['keymap'].popitem()
+                self.__keymap__.popitem()
         except KeyError:
             pass
 
@@ -212,7 +213,7 @@ class Dixt(MutableMapping):
             if isinstance(this, Dixt):
                 return {key: _dictify(value)
                         for key, value
-                        in this.__dict__['data'].items()}
+                        in this.__data__.items()}
             elif isinstance(this, list):
                 return [_dictify(item) for item in this]
             return this
@@ -315,7 +316,7 @@ class Dixt(MutableMapping):
         """Return a set-like object providing a view
         to this object's key-value pairs.
         """
-        return ItemsView(self.__dict__['data'])
+        return ItemsView(self.__data__)
 
     def json(self) -> str:
         """Convert this object to JSON string."""
@@ -325,7 +326,7 @@ class Dixt(MutableMapping):
         """Return a set-like object providing a view
         to this object's keys.
         """
-        return KeysView(self.__dict__['data'])
+        return KeysView(self.__data__)
 
     def pop(self, key, default=..., /) -> Any:
         """Get the value associated with the `key`, then remove the item.
@@ -376,15 +377,15 @@ class Dixt(MutableMapping):
         """Return a set-like object providing a view
         to this object's values.
         """
-        return ValuesView(self.__dict__['data'])
+        return ValuesView(self.__data__)
 
     @staticmethod
     def from_json(json_str, /):
         """Convert a JSON string to a ``Dixt`` object."""
         return Dixt(json.loads(json_str))  # let json handle errors
 
-    def _get_orig_key(self, key):
-        return self.__dict__['keymap'].get(_normalise_key(key))
+    def __get_orig_key(self, key):
+        return self.__keymap__.get(_normalise_key(key))
 
 
 def _hype(spec):
@@ -425,3 +426,14 @@ def _dictify_kvp(sequence):
         return dict(sequence or {})
     except (TypeError, ValueError):
         raise ValueError(f'Sequence {sequence} is not iterable key-value pairs')
+
+
+def _contents(container, *keys):
+    result, not_found = [], []
+    for key in keys:
+        if key in container:
+            result.append(True)
+        else:
+            result.append(False)
+            not_found.append(key)
+    return tuple(result), not_found

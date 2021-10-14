@@ -347,7 +347,7 @@ class TestDixt(unittest.TestCase):
     def test__pop(self):
         self.assertEqual(self.dixt.pop('extra'), 'info')
         self.assertNotIn('extra', self.dixt)
-        self.assertNotIn('extra', self.dixt.__dict__['keymap'])
+        self.assertNotIn('extra', self.dixt.__keymap__)
         with self.assertRaises(KeyError):
             self.dixt.pop('extra')
         self.assertEqual(self.dixt.pop('extra', 'default-value'), 'default-value')
@@ -356,13 +356,13 @@ class TestDixt(unittest.TestCase):
         self.dixt.headers.clear()
         self.assertEqual(self.dixt.headers, {})
         self.assertEqual(self.dixt.headers, Dixt())
-        self.assertEqual(self.dixt.headers.__dict__['keymap'], {})
+        self.assertEqual(self.dixt.headers.__keymap__, {})
         self.dixt.body.clear()
         self.assertEqual(self.dixt, {'headers': {}, 'body': {}, 'extra': 'info'})
         self.assertEqual(self.dixt, Dixt(headers=Dixt(),
                                          body=Dixt(),
                                          extra='info'))
-        self.assertEqual(self.dixt.body.__dict__['keymap'], {})
+        self.assertEqual(self.dixt.body.__keymap__, {})
 
     def test__update__value_is_forced_to_be_none(self):
         dx = Dixt(a=1, b=2)
@@ -444,10 +444,10 @@ class TestDixt(unittest.TestCase):
         self.assertNotIn('headers', self.dixt)
 
         self.assertIn('C-D', self.dixt.body)
-        self.assertIn('c_d', self.dixt.body.__dict__['keymap'])
+        self.assertIn('c_d', self.dixt.body.__keymap__)
         del self.dixt.body['C-D']
         self.assertNotIn('C-D', self.dixt.body)
-        self.assertNotIn('c_d', self.dixt.body.__dict__['keymap'])
+        self.assertNotIn('c_d', self.dixt.body.__keymap__)
 
         del self.dixt['body']
         self.assertEqual(self.dixt, Dixt(extra='info'))
