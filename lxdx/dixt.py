@@ -242,8 +242,8 @@ class Dixt(MutableMapping):
         if isinstance(default, (tuple, list)):
             if len(default) != len(attrs):
                 raise ValueError(f'Length of {attrs} and {default} not equal.')
-
-        default = [default] * len(attrs)
+        else:
+            default = [default] * len(attrs)
         result = []
 
         for i, key in enumerate(attrs):
@@ -252,7 +252,7 @@ class Dixt(MutableMapping):
             except KeyError:
                 result.append(default[i])
 
-        return result if len(result) > 1 else result[0]
+        return tuple(result) if len(result) > 1 else result[0]
 
     def get_from(self, path: str, /) -> Any:
         """Get the item from the specified path of the key.

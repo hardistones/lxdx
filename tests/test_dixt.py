@@ -227,15 +227,26 @@ class TestDixt(unittest.TestCase):
     def test__getattr__dot_notation__raises_error_when_nonexistent(self):
         self.assertRaises(KeyError, lambda: self.dixt.nonexistent)
 
-    def test__getattr__get_method__returns_value_of_existing_attributes(self):
+    def test__get__returns_value_of_existing_attributes(self):
         headers = {'Accept-Encoding': 'gzip',
                    'Content-Type': 'application/json'}
         self.assertEqual(self.dixt.get('headers'), headers)
         self.assertEqual(self.dixt.headers.get('Accept-Encoding'), 'gzip')
 
-    def test__getattr__get_method__returns_default_value_of_nonexistent_attributes(self):
+    def test__get__returns_default_value_of_nonexistent_attributes(self):
         self.assertEqual(self.dixt.get('ghost', default=-1), -1)
         self.assertEqual(self.dixt.headers.get('Lost-Item', default=object), object)
+
+        self.assertEqual(self.dixt.get('ghost', default=[1]), 1)
+        self.assertEqual(self.dixt.get('ghost', 'invisible', default=2), (2, 2))
+        self.assertEqual(self.dixt.get('ghost', 'invisible', default=[4, 5]), (4, 5))
+
+    def test__get__raises_error_when_defaults_dont_match_with_attrs_len(self):
+        with self.assertRaises(ValueError):
+            self.dixt.get('ghost', 'invisible', default=(1, 2, 3))
+
+        with self.assertRaises(ValueError):
+            self.dixt.get('ghost', 'invisible', default=[3])
 
     def test__setattr__builtin_function(self):
         setattr(self.dixt, 'name', 'value')
