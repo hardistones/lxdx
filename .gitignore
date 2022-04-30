@@ -30,3 +30,6 @@ venv/
 
 # docs build
 docs/build
+
+# others
+.todo

@@ -34,7 +34,6 @@ import unittest
 from assertpy import assert_that
 from collections import OrderedDict
 from collections.abc import KeysView, ValuesView, ItemsView
-from dataclasses import MISSING
 
 from lxdx import Dixt
 
@@ -48,9 +47,8 @@ class TestDixt(unittest.TestCase):
             },
             'body': {
                 'C-D': 1.2,
-                'm': MISSING,
                 'e': [2, {'g': 9.806}],
-                'f': {'x': None, 'y': [{'p': 5}, [MISSING, 8]]}
+                'f': {'x': None, 'y': [{'p': 5}, [8]]}
             },
             'extra': 'info'
         })
@@ -62,7 +60,7 @@ class TestDixt(unittest.TestCase):
             'body': {
                 'C-D': 1.2,
                 'e': [2, {'g': 9.806}],
-                'f': {'x': None, 'y': [{'p': 5}, [None, 8]]}
+                'f': {'x': None, 'y': [{'p': 5}, [8]]}
             },
             'extra': 'info'
         }
@@ -95,9 +93,6 @@ class TestDixt(unittest.TestCase):
 
         dx = Dixt(alpha='α', beta='β')
         self.assertEqual(Dixt(dx, beta='beta'), {'alpha': 'α', 'beta': 'beta'})
-
-    def test__init__should_not_include_fields_marked_MISSING(self):
-        self.assertEqual(self.dixt.body.get('m'), None)
 
     def test__equality__dixt_compared_to_dixt(self):
         a = Dixt(x=1, y=2, z=3)
@@ -210,7 +205,7 @@ class TestDixt(unittest.TestCase):
     def test__getattr__dot_notation(self):
         expected = {'C-D': 1.2,
                     'e': [2, {'g': 9.806}],
-                    'f': {'x': None, 'y': [{'p': 5}, [None, 8]]}}
+                    'f': {'x': None, 'y': [{'p': 5}, [8]]}}
 
         self.assertEqual(self.dixt.body, expected)
         self.assertEqual(self.dixt.body.f.x, None)
@@ -290,21 +285,6 @@ class TestDixt(unittest.TestCase):
         self.assertEqual(self.dixt.extra, {'alpha': 1})
         self.assertEqual(self.dixt.extra.alpha, 1)
 
-    def test__setattr__value_is_MISSING__existing_attribute_should_be_removed(self):
-        self.dixt.headers = MISSING
-        setattr(self.dixt, 'body', MISSING)
-        self.assertEqual(self.dixt, {'extra': 'info'})
-
-    def test__setattr__value_is_MISSING__nonexistent_attribute_should_be_ignored(self):
-        self.dixt.will_not_exist = MISSING
-        self.assertTrue('will_not_exist' not in self.dixt)
-        self.assertIsNone(self.dixt.get('will_not_exist'))
-
-        setattr(self.dixt, 'wont_exist', MISSING)
-        self.assertTrue('wont_exist' not in self.dixt)
-        self.assertIsNone(self.dixt.get('wont_exist'))
-        self.assertEqual(self.dixt.get('wont_exist', default='default-value'), 'default-value')
-
     def test__getitem__gets_value_of_existing_items(self):
         self.assertEqual(self.dixt['headers']['Accept-Encoding'], 'gzip')
         self.assertEqual(self.dixt['body']['f']['x'], None)
@@ -327,6 +307,10 @@ class TestDixt(unittest.TestCase):
     def test__setitem__raises_error_when_adding_similarly_formatted_keys(self):
         with self.assertRaises(KeyError):
             self.dixt.headers['content_type'] = 'new-type'
+
+        # must not raise error
+        self.dixt.headers.content_type = 'type-one'
+        self.dixt.headers['Content-Type'] = 'type-two'
 
     def test__setitem__nonexistent_attributes(self):
         dx = Dixt()
@@ -509,15 +493,15 @@ class TestDixt(unittest.TestCase):
         self.assertEqual(self.dixt.body.e[1].g, 9.806)
         self.assertEqual(self.dixt['body']['e'][1]['g'], 9.806)
 
-        self.assertEqual(self.dixt.body.f.y[1], [None, 8])
-        self.assertEqual(self.dixt['body']['f']['y'][1], [None, 8])
+        self.assertEqual(self.dixt.body.f.y[1], [8])
+        self.assertEqual(self.dixt['body']['f']['y'][1], [8])
 
-        self.assertEqual(self.dixt.body.f.y[1][0], None)
-        self.assertEqual(self.dixt['body']['f']['y'][1][0], None)
+        self.assertEqual(self.dixt.body.f.y[1][0], 8)
+        self.assertEqual(self.dixt['body']['f']['y'][1][0], 8)
 
     def test__operations_on_nested_objects(self):
         self.dixt.body.f.y[1].extend(['σ', 'φ', 'θ'])
-        self.assertEqual(self.dixt.body.f.y[1], [None, 8, 'σ', 'φ', 'θ'])
+        self.assertEqual(self.dixt.body.f.y[1], [8, 'σ', 'φ', 'θ'])
 
         self.dixt.body.e[1] = {'del-ta': 'd'}
         # AttributeError: Since the assignment is handled by the list object,
@@ -535,27 +519,42 @@ class TestDixt(unittest.TestCase):
             ('$.extra', 'info'),
             ('$.body.e[0]', 2),
             ('$.body.e[1].g', 9.806),
-            ('$.body.f.y[1][0]', None)
+            ('$.body.f.y[1][0]', 8)
         ]
         for path, value in queries:
             self.assertEqual(self.dixt.get_from(path), value)
 
     def test__get_from__invalid_path(self):
-        queries = [
-            'any.string',
-            123,
-            object()
-        ]
-        for path in queries:
-            with self.assertRaises(Exception):
-                self.dixt.get_from(path)
+        error_queries = {
+            IndexError: ['$.body.e[100]'],
+            KeyError: [
+                '$.extra.info',
+                '$.not_heading.nonexistent',
+                '$.headers.nonexistent'
+            ],
+            TypeError: [123, object()],
+            ValueError: [
+                '',
+                'any.string',
+                '$',
+                '$.',
+                '$..',
+                '$[0]',
+                '$.body.e.[0]',
+                'a.b[0]',
+                '$.a[2',
+                '$.a.b[]',
+                '$.a[-1]',
+                '$.a[1:]',
+                '$.a[:1]',
+                '$.a[::]'
+            ],
+        }
 
-    def test__get_from__raises_error_when_key_is_not_found(self):
-        with self.assertRaises(KeyError):
-            self.dixt.get_from('$.headers.nonexistent')
-
-        with self.assertRaises(KeyError):
-            self.dixt.get_from('$.not_heading.nonexistent')
+        for exc, queries in error_queries.items():
+            for path in queries:
+                with self.assertRaises(exc):
+                    self.dixt.get_from(path)
 
     def test__json__conversion_to_json_format(self):
         json_equivalent = json.dumps(self.dict_equiv)
@@ -569,7 +568,7 @@ class TestDixt(unittest.TestCase):
     def test__submap__supermap(self):
         criteria = [
             {'body': {'e': [2, {'g': 9.806}]}},
-            {'body': {'f': {'y': [{'p': 5}, [None, 8]]}}},
+            {'body': {'f': {'y': [{'p': 5}, [8]]}}},
             {'extra': 'info'},
             [('extra', 'info')]
         ]
@@ -590,6 +589,7 @@ class TestDixt(unittest.TestCase):
 
         for criterion in ['string', {'set'}, 123, ['non', 'key-value', 'pair']]:
             with self.assertRaises(Exception):
+                # noinspection PyTypeChecker
                 Dixt().is_submap_of(criterion)
 
     def test__popitem(self):
@@ -611,6 +611,80 @@ class TestDixt(unittest.TestCase):
     def test__setdefault__does_not_overwrite_existing_value(self):
         self.dixt.setdefault('extra', 'another-value')
         self.assertEqual(self.dixt.extra, 'info')
+
+    def test__keymeta__hidden_flag(self):
+        self.dixt.keymeta('body', hidden=True)
+
+        self.assertTrue('body' in self.dixt.whats_hidden())
+        self.assertFalse('body' in self.dixt)
+        self.assertFalse(self.dixt == self.dict_equiv)
+
+        self.assertEqual(len(self.dixt), 2)
+        self.assertEqual(list(self.dixt.keys()), ['headers', 'extra'])
+
+        body = {'f': {'x': None}}
+        self.assertFalse(self.dixt.is_supermap_of({'body': body}))
+        dx = self.dixt.body | {'something': 'new'}
+        self.assertEqual(dx.something, 'new')
+        self.assertTrue(dx.is_supermap_of(body | {'something': 'new'}))
+
+    def test__keymeta__flag_a_non_str_key(self):
+        self.dixt[123] = '123'
+        self.dixt.keymeta(123, hidden=True)
+        self.assertTrue(123 not in self.dixt)
+
+    def test__keymeta__hidden_flag__can_still_get_and_set_items(self):
+        self.dixt.headers.keymeta('Accept-Encoding', hidden=True)
+        self.dixt.headers.accept_encoding = 'zip'
+        self.assertEqual(self.dixt.headers.accept_encoding, 'zip')
+
+        self.dixt.keymeta('headers', hidden=True)
+        self.dixt.headers['Accept-Encoding'] = 'tar'
+        self.assertEqual(self.dixt.headers['Accept-Encoding'], 'tar')
+
+    def test__keymeta__able_to_flag_items_of_hidden_items(self):
+        self.dixt.keymeta('body', hidden=True)
+        self.dixt.body.keymeta('e', hidden=True)
+        self.assertTrue('body' in self.dixt.whats_hidden())
+        self.assertTrue('e' in self.dixt.body.whats_hidden())
+
+    def test__keymeta__unsupported_flags_bypassed(self):
+        self.dixt.keymeta('body', whatever='value')
+        self.assertTrue('body' not in self.dixt.__keymeta__)
+
+        self.dixt.keymeta('extra', hidden=True, whatever='value')
+        self.assertTrue('whatever' not in self.dixt.__keymeta__['extra'])
+        self.assertTrue('hidden' in self.dixt.__keymeta__['extra'])
+
+    def test__keymeta__no_flags_returns_metadata_of_keys(self):
+        self.dixt.keymeta('extra', 'body', hidden=True)
+
+        expected = {'extra': {'hidden': True}}
+        self.assertEqual(self.dixt.keymeta('extra'), expected)
+
+        expected['body'] = {'hidden': True}
+        self.assertEqual(self.dixt.keymeta('extra', 'body'), expected)
+
+    def test__keymeta__remove_from_keymeta_a_deleted_flagged_item(self):
+        self.dixt.keymeta('extra', hidden=True)
+        del self.dixt.extra
+        self.assertTrue('extra' not in self.dixt.__data__)
+        self.assertTrue('extra' not in self.dixt.__keymeta__)
+        self.assertTrue('extra' not in self.dixt.__hidden__)
+
+    def test__keymeta__cleanup_of_metadata_on_reset_value(self):
+        self.dixt.keymeta('body', hidden=True)
+        self.assertTrue('hidden' in self.dixt.__keymeta__['body'])
+        self.dixt.keymeta('body', hidden=False)  # reset value
+        self.assertTrue('body' not in self.dixt.__keymeta__)
+
+    def test__keymeta__raises_error_when_keys_are_not_found(self):
+        with self.assertRaises(KeyError):
+            self.dixt.keymeta('ghost')
+
+    def test__keymeta__hidden_flag__raises_error_when_invalid_value(self):
+        with self.assertRaises(TypeError):
+            self.dixt.keymeta('extra', hidden=2)
 
     def _assert_obj_tree_has_no_dixt_object(self, obj):
         self.assertNotIsInstance(obj, Dixt)

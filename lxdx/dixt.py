@@ -29,26 +29,34 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
 import json
+import re
 
+from collections import defaultdict
 from collections.abc import KeysView, ItemsView, ValuesView, MutableMapping
-from dataclasses import MISSING
-from typing import Any, Dict, Mapping, Union, Tuple
-
+from typing import Any, Dict, List, Mapping, Tuple, Union, Hashable
 
 __all__ = ['Dixt']
 
 
 class Dixt(MutableMapping):
-    """``Dixt`` is an "extended" Python ``dict``, works just like a ``dict``,
-    but with attribute-accessible keys by normalising keys and metadata.
+    """``Dixt`` is an "extended" Python ``dict``, works just like ``dict``,
+    but with metadata and attribute-accessibility by normalising keys.
 
     New methods are incorporated, such as conversion from and to JSON,
     submap/supermap comparison, and others.
     """
 
+    # supported meta flags
+    __metas__ = {'hidden': bool}
+
+    # flags and their corresponding 'off' values.
+    __meta_resets__ = {'hidden': False}
+
     def __new__(cls, data=None, /, **kwargs):
         spec = dict(data or {}) | kwargs
         dx = super().__new__(cls)
+
+        # holds all normalised keys including non-str keys
         dx.__dict__['__keymap__'] = {_normalise_key(key): key
                                      for key in spec.keys()}
         return dx
@@ -57,18 +65,30 @@ class Dixt(MutableMapping):
         """Initialise an empty object, or from another mapping object,
         sequence of key-value pairs, or keyword arguments.
 
-        :param data: Can be a iterable of key-value pairs, a ``dict``,
+        :param data: Can be an iterable of key-value pairs, a ``dict``,
                      another ``Dixt`` object
         :param kwargs: Additional items which add or update
                        (if there are same keys) ``data``.
         """
         super().__init__()
         spec = dict(data or {}) | kwargs
+
+        # holds all original keys and their values
         self.__dict__['__data__'] = _hype(spec)
-        self.__dict__['__keymeta__'] = {}
+
+        # container for keys and their meta flags
+        self.__dict__['__keymeta__'] = defaultdict(dict)
+
+        # Container for hidden items as effect of the hidden flag.
+        # Items in __data__ are moved here until the hidden flag is reset.
+        self.__dict__['__hidden__'] = {}
+
+        self.__dict__['__key__'] = None
+
+        self.__dict__['__parent__'] = None
 
     def __contains__(self, origkey):
-        """``True`` if the this object contains the original (non-normalised) key,
+        """``True`` if this object contains the original (non-normalised) key,
         otherwise ``False``. This retains the original behaviour of ``dict``.
         """
         return not _contents(self.__data__, origkey)[1]
@@ -82,11 +102,14 @@ class Dixt(MutableMapping):
         :raises KeyError: When original key is not found.
         """
         if origkey := self.__get_orig_key(attr):
-            del self.__data__[origkey]
+            if origkey in self.whats_hidden():
+                del self.__hidden__[origkey]
+                del self.__keymeta__[origkey]
+            else:
+                del self.__data__[origkey]
             del self.__keymap__[_normalise_key(attr)]
         else:
-            raise KeyError(f"{self.__class__.__name__} "
-                           f"object has no attribute '{attr}'")
+            raise KeyError(f"Dixt object has no attribute '{attr}'")
 
     def __delitem__(self, key):
         self.__delattr__(key)
@@ -103,12 +126,14 @@ class Dixt(MutableMapping):
 
     def __getattr__(self, key):
         if origkey := self.__get_orig_key(key):
+            if origkey in self.whats_hidden():
+                return self.__hidden__[origkey]
             return self.__data__[origkey]
 
         try:
             return super().__getattribute__(key)
-        except AttributeError:
-            raise KeyError(key)
+        except AttributeError as e:
+            raise KeyError(key) from e
 
     def __getitem__(self, key):
         key = self.__get_orig_key(key) or key
@@ -124,19 +149,21 @@ class Dixt(MutableMapping):
         return self.__str__()
 
     def __setattr__(self, attr, value):
-        if value is MISSING:
-            try:
-                self.__delitem__(attr)
-            finally:
-                return
+        nkey = _normalise_key(attr)
+        origkey = self.__get_orig_key(attr) or attr
+        if nkey not in self.__keymap__:
+            self.__keymap__[nkey] = attr
 
-        self.__keymap__[_normalise_key(attr)] = attr
+        container = self.__data__
+        if not _contents(self.__hidden__, origkey)[1]:
+            container = self.__hidden__
+
         if isinstance(value, Dixt):
-            self.__data__[attr] = value
+            container[origkey] = value
         elif isinstance(value, dict):
-            self.__data__[attr] = Dixt(value)
+            container[origkey] = Dixt(value)
         else:
-            self.__data__[attr] = _hype(value)
+            container[origkey] = _hype(value)
 
     def __setitem__(self, key, value):
         if origkey := self.__get_orig_key(key):
@@ -214,7 +241,7 @@ class Dixt(MutableMapping):
                 return {key: _dictify(value)
                         for key, value
                         in this.__data__.items()}
-            elif isinstance(this, list):
+            if isinstance(this, list):
                 return [_dictify(item) for item in this]
             return this
 
@@ -260,26 +287,40 @@ class Dixt(MutableMapping):
         Path is the 'stringified' attribute-style accessibility.
 
         :param path: The direction to the target item specified by
-                     ``$.<key>.{...}.<target-key>``, where
+                     ``$.<key>.{...}.<target-key>``, where the required
                      ``$`` points to the object where this method is called.
                      The series of keys must be the normalised keys.
 
         :raises TypeError, ValueError: Invalid path.
-        :raises KeyError: When key is not found.
+        :raises KeyError: Key is not found.
+        :raises IndexError: Invalid list index.
 
         Examples:
             .. code-block::
 
-                dixt.get_from('$.group.name')  # $ points to dixt
-                dixt.group.get_from('$.name')  # $ points to group
+                dixt.get_from('$.group.name')          # dixt.group.name
+                dixt.group.get_from('$.some.list[1]')  # dixt.group.some.list[1]
+
+        .. note::
+            - Path is only evaluated for public *attributes*.
+            - Only one (1) item can be accessed from any ``list``. That is, no slicing.
         """
         if not isinstance(path, str):
             raise TypeError(f'Invalid path: {path}')
         if not path.startswith('$.'):
             raise ValueError(f'Invalid path: {path}')
-        return eval(f"{path.replace('$', 'self')}")
+        if path.strip().lstrip('$.') == '':
+            raise ValueError(f'Invalid path: {path}')
+        if re.match(r'^\$(\.\w+(\[\d+])*)+$', path) is None:
+            raise ValueError(f'Invalid path: {path}')
 
-    def is_submap_of(self, other) -> bool:
+        _path = path.replace('[', '.[').strip('$.').split('.')
+        value = _traverse(self, _path)
+        if isinstance(value, Exception):
+            raise value from None
+        return value
+
+    def is_submap_of(self, other: Union[Mapping, List[Tuple]]) -> bool:
         """Evaluate if all of this object's keys and values are contained
         and equal to the `other`'s, recursively. This is the opposite of
         :func:`is_supermap_of`.
@@ -303,8 +344,8 @@ class Dixt(MutableMapping):
             other = _dictify_kvp(other)
         return _is_submap(self, other)
 
-    def is_supermap_of(self, other) -> bool:
-        """Evaluate if all of the `other` object's keys and values are contained
+    def is_supermap_of(self, other: Union[Mapping, List[Tuple]]) -> bool:
+        """Evaluate if all the `other` object's keys and values are contained
         and equal to this object's, recursively. This is the opposite of
         :func:`is_submap_of`.
 
@@ -321,6 +362,41 @@ class Dixt(MutableMapping):
     def json(self) -> str:
         """Convert this object to JSON string."""
         return json.dumps(self.dict())
+
+    def keymeta(self, *keys, **flags):
+        """Add metadata to one or more `keys`. If no `flags` are specified,
+        return all metadata for the `keys`.
+
+        Supported flags:
+            * hidden (boolean)
+                Hides the item from the output/result or processing of
+                some methods and operators of ``Dixt``.
+                See separate documentation for more info.
+
+        :raises KeyError: When any key is not found.
+
+        .. note::
+            Non-supported flags are silently bypassed.
+        """
+        nkeys = [_normalise_key(k) for k in keys]
+        if not_found := _contents(self.__keymap__, *nkeys)[1]:
+            raise KeyError(f'Key(s not found: {not_found}')
+
+        supported_flags = set(self.__metas__).intersection(flags)
+        for flag in supported_flags:
+            if not isinstance(flags[flag], self.__metas__[flag]):
+                raise TypeError(f'{flag} must be {self.__metas__[flag]}')
+
+        retval = {}
+        for key in keys:
+            nkey = _normalise_key(key)
+            retval[nkey] = self.__keymeta__[nkey]
+            for flag in supported_flags:
+                add_meta_func = f'_Dixt__add_{flag}_meta'
+                getattr(self, add_meta_func)(nkey, flags[flag])
+            self.__cleanup_meta(nkey)
+
+        return retval if not flags else None
 
     def keys(self) -> KeysView:
         """Return a set-like object providing a view
@@ -353,7 +429,6 @@ class Dixt(MutableMapping):
         """
         return super().popitem()
 
-
     def setdefault(self, key, default=None) -> Any:
         """Get value associated with `key`. If `key` exists, return ``self[key]``;
         otherwise, set ``self[key] = default`` then return `default` value.
@@ -379,6 +454,13 @@ class Dixt(MutableMapping):
         """
         return ValuesView(self.__data__)
 
+    def whats_hidden(self) -> tuple:
+        """Get all keys that have the ``hidden`` metadata.
+
+        :return: Tuple of non-normalised keys.
+        """
+        return tuple(self.__hidden__.keys())
+
     @staticmethod
     def from_json(json_str, /):
         """Convert a JSON string to a ``Dixt`` object."""
@@ -387,13 +469,35 @@ class Dixt(MutableMapping):
     def __get_orig_key(self, key):
         return self.__keymap__.get(_normalise_key(key))
 
+    def __add_hidden_meta(self, key, value):
+        self.__keymeta__[key]['hidden'] = value
+        origkey = self.__get_orig_key(key)
+        if value:
+            self.__hidden__[origkey] = self.__data__[origkey]
+            del self.__data__[origkey]
+        else:
+            self.__data__[origkey] = self.__hidden__[origkey]
+            del self.__hidden__[origkey]
+
+    def __cleanup_meta(self, key):
+        """Remove empty, None, or any 'reset' values of flags
+        note: key should be normalised beforehand
+        """
+        for flag, value in self.__meta_resets__.items():
+            if self.__keymeta__[key].get(flag, 'xxx') == value:
+                del self.__keymeta__[key][flag]
+
+        # remove key completely if there's no more flags
+        if not self.__keymeta__[key].keys():
+            del self.__keymeta__[key]
+
 
 def _hype(spec):
     if isinstance(spec, Dixt):
         return spec
 
     if isinstance(spec, (list, tuple)):
-        return [Dixt(**item)
+        return [Dixt(item)
                 if isinstance(item, dict) else _hype(item)
                 for item in spec]
 
@@ -402,30 +506,35 @@ def _hype(spec):
         for key, value in spec.items():
             if issubclass(type(value), dict):
                 data[key] = Dixt(value)
+                data[key].__dict__['__key__'] = key
             elif isinstance(value, (list, tuple)):
                 data[key] = _hype(value)
-            elif value is not MISSING:
+            else:
                 data[key] = value
         return data
 
-    if spec is not MISSING:
-        return spec
+    return spec
 
 
-def _normalise_key(item):
+def _normalise_key(key: Hashable) -> Hashable:
     """Internal dict handles the incoming keys,
     so the item's hashability is not checked here.
     """
-    if isinstance(item, str):
-        return item.strip().replace(' ', '_').replace('-', '_').lower()
-    return item
+    if isinstance(key, str):
+        return key.strip()\
+                  .replace(' ', '_')\
+                  .replace('-', '_')\
+                  .lower()
+    return key
 
 
 def _dictify_kvp(sequence):
     try:
         return dict(sequence or {})
-    except (TypeError, ValueError):
-        raise ValueError(f'Sequence {sequence} is not iterable key-value pairs')
+    except (TypeError, ValueError) as e:
+        msg = f'Sequence {sequence} is not ' \
+              f'iterable key-value pairs'
+        raise ValueError(msg) from e
 
 
 def _contents(container, *keys):
@@ -437,3 +546,26 @@ def _contents(container, *keys):
             result.append(False)
             not_found.append(key)
     return tuple(result), not_found
+
+
+def _traverse(obj, attrs: list):
+    if not attrs:
+        # We have successfully got obj from previous call
+        # so obj must be the correct value.
+        return obj
+
+    attr = attrs.pop(0)
+
+    if isinstance(obj, (list, tuple)):
+        try:
+            _obj = eval('obj' + attr)
+        except IndexError as e:
+            return e
+        return _traverse(_obj, attrs)
+
+    if isinstance(obj, Dixt):
+        if attr not in obj.__data__:
+            return KeyError(attr)
+        return _traverse(getattr(obj, attr), attrs)
+
+    return KeyError(attr)

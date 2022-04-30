@@ -6,6 +6,10 @@
 lxdx
 ====
 
+.. meta::
+   :description: lxdx documentation
+   :keywords: lxdx, Dixt, dict, extended, metadata, python
+
 .. toctree::
    :hidden:
    :maxdepth: 2
@@ -19,6 +23,7 @@ lxdx
    :hidden:
    :caption: Project
 
+   Changelog <changelog>
    License <license>
    Github <https://github.com/hardistones/lxdx>
 

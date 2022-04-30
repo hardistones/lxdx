@@ -66,6 +66,10 @@ Future
 ------
 ``lxdx`` is supposed to be a library of "extended" ``list`` and ``dict``. For now there's no use case for the ``list`` extension.
 
+**To be supported**
+
+- User-defined meta specification.
+
 License
 -------
 This project and all its files are licensed under the 3-Clause BSD License.

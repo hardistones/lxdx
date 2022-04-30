@@ -4,12 +4,12 @@ Examples
 Listed here are some of the few operations ``Dixt`` can do.
 
 .. tip::
-    A great resource for ``Dixt``'s functions and operations is maybe its `unit test`__.
+    A great resource for ``Dixt``'s functions and operations is maybe its `unit test`_.
 
-.. __: https://github.com/hardistones/lxdx/blob/dev/tests/test_dixt.py
+.. _unit test: https://github.com/hardistones/lxdx/blob/dev/tests/test_dixt.py
 
 Initialisation
---------------
+**************
 .. code-block:: python
 
     from lxdx import Dixt
@@ -37,7 +37,7 @@ Initialisation
     assert ex == dx
 
 Merging
--------
+*******
 Starting with Python 3.9, two ``dict``\s can be merged using the ``|`` operator,
 which ``Dixt`` also supports. The right side of the operator will update
 the left side, if any of the first layer keys are the same.
@@ -55,7 +55,7 @@ the left side, if any of the first layer keys are the same.
 
 
 Getting and setting attributes
-------------------------------
+******************************
 `Attributes` in a ``Dixt`` object are just items' normalised keys.
 See the :ref:`dixt-class-label` reference for more info.
 
@@ -124,7 +124,7 @@ is also handled.
 
 
 Notable Dixt methods
---------------------
+********************
 
 :py:meth:`contains(*keys, assert_all=True) <lxdx.Dixt.contains>`
 

@@ -7,4 +7,5 @@ Here's how to get started with ``lxdx``:
     :maxdepth: 2
 
     normalisation
+    metadata
     examples

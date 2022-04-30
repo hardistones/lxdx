@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lxdx"
-version = "1.0.0a1"
+version = "0.3.0a1"
 authors = ["Hardy Stones <hardistones@hotmail.com>"]
 description = "Just an extended Python dict with attribute-accessibility, extra methods, and metadata"
 homepage = "https://github.com/hardistones/lxdx"
@@ -13,12 +13,14 @@ classifiers = [
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
     "Topic :: Software Development",
     "Topic :: Software Development :: Libraries",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: Testing",
     "Topic :: Utilities"
 ]
+keywords = ["dict", "extended", "normalize", "metadata"]
 exclude = ["tests"]
 
 
@@ -37,7 +39,6 @@ importlib-metadata = "*"
 pylint = "*"
 pytest = "*"
 pytest-cov = "*"
-pytest-sugar = "*"
 pytest-instafail = "*"
 pytest-xdist = "*"
 pytest-random-order = "*"
@@ -45,6 +46,13 @@ pytest-timeout = "*"
 pytest-mccabe = "*"
 sphinx = "4.2.0"
 furo = "*"
+
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "--capture=no --random-order --timeout=1 --cov=lxdx --cov-report=term-missing"
+console_output_style = "count"
+testpaths = ["tests"]
 
 
 [build-system]
