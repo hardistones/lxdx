@@ -1,6 +1,14 @@
 Changelog
 =========
 
+v0.4.0
+******
+
+* Fix: must not alter data type during init
+* New function
+    - ``reverse()``
+* More documentation
+
 v0.3.0
 ******
 
