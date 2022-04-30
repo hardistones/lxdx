@@ -13,6 +13,7 @@ Why this project?
 * ``dataclass`` is not cut for modelling hierarchical data.
 * Brackets when accessing multi-layer data is too many. `Dot notation`_ may be a cleaner way.
 * Introduce utility functions like ``get_from(path)``, inspired from `JsonPath`_, for programmability.
+* Ability to add metadata to the items.
 
 Installation
 ------------
@@ -53,7 +54,7 @@ Examples
     dx.a_list[1].obj_attr = 'value'
 
     # Programmatically get values
-    assert dx.a_list[1:7].obj_attr == dx.get_from('$.a_list[1:7].obj_attr')
+    assert dx.a_list[1].obj_attr == dx.get_from('$.a_list[1].obj_attr')
 
     json_str = '{"a": "JSON string"}'
     assert Dixt.from_json(json_str).json() == json_str

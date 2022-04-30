@@ -6,8 +6,6 @@ Listed here are some of the few operations ``Dixt`` can do.
 .. tip::
     A great resource for ``Dixt``'s functions and operations is maybe its `unit test`_.
 
-.. _unit test: https://github.com/hardistones/lxdx/blob/dev/tests/test_dixt.py
-
 Initialisation
 **************
 .. code-block:: python
@@ -36,6 +34,21 @@ Initialisation
     ex = Dixt(dx)
     assert ex == dx
 
+.. important::
+    ``Dixt`` cannot accept iterators as data due to some internal handling.
+    Iterators must be wrapped/converted first to ``dict`` or
+    a ``list``/``tuple`` of key-value pairs.
+
+    .. code-block:: python
+
+        alpha, omega = [1, 'a'], [9, 'z']
+
+        assert Dixt(zip(alpha, omega)) == {}
+        assert Dixt(dict(zip(alpha, omega))) == {1: 9, 'a': 'z'}
+        assert Dixt(list(zip(alpha, omega))) == {1: 9, 'a': 'z'}
+        assert Dixt(tuple(zip(alpha, omega))) == {1: 9, 'a': 'z'}
+
+
 Merging
 *******
 Starting with Python 3.9, two ``dict``\s can be merged using the ``|`` operator,
@@ -49,7 +62,7 @@ the left side, if any of the first layer keys are the same.
     assert ex == {'alpha': 'α', 'beta': 'β', 'gamma': 'γ'}
     assert isinstance(ex, Dixt)
 
-.. note::
+.. important::
     Only when a ``Dixt`` object is at the left of the operator will
     the resulting object a ``Dixt`` object, otherwise ``dict``.
 
@@ -74,10 +87,16 @@ See the :ref:`dixt-class-label` reference for more info.
     assert dx.product_name == dx['Product Name'] == 'Data Blue'
 
     dx.metadata.content_type = 'application/xml'
-    assert dx.metadata.content_type == dx['metadata']['Content-Type'] == 'application/xml'
+    assert dx.metadata.content_type == dx['metadata']['Content-Type'] == 'application/xml
+
+    # setting items to a Dixt object inside of a list
+    dx.some_list[2].some_key = 'new value'
+    assert 'some-key' not in dx.some_list[2]
+    assert 'some_key' in dx.some_list[2]
 
     # depending on the original key,
     # this could be equivalent to dx['product-list']['names'][-2:]
+    # or dx['Product-List']['names'][-2:]
     dx.product_list.names[-2:]
 
 When adding new items by 'setting attributes' using the dot notation, keys are taken verbatim:
@@ -207,3 +226,27 @@ These methods are included to ease up conversion from and to JSON string.
 
     json_str = '{"a": "JSON string"}'
     assert Dixt.from_json(json_str).json() == json_str
+
+|
+
+:py:meth:`reverse() <lxdx.Dixt.reverse>`
+
+This function will reverse the position of items -- keys become values and
+values become keys.
+
+As with ``dict``, only `hashable`_ types are accepted as keys.
+
+.. note::
+    Hidden items (flagged with metadata) are excluded from the output.
+
+.. code-block:: python
+
+    dx = Dixt(alpha=100, beta=200)
+    assert dx.reverse() == {100: 'alpha', 200: 'beta'}
+
+    dx = Dixt(alpha={1,2,3})
+    dx.reverse()  # TypeError
+
+
+.. _unit test: https://github.com/hardistones/lxdx/blob/dev/tests/test_dixt.py
+.. _hashable: https://docs.python.org/3/glossary.html#term-hashable

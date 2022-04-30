@@ -66,15 +66,34 @@ class TestDixt(unittest.TestCase):
         }
 
     def test__init__accepts_key_value_pairs(self):
-        dx = Dixt([(1, 1), ('2', '2')])
-        self.assertEqual(dx, {1: 1, '2': '2'})
+        dx = Dixt([(1, 100), ('2', '200')])
+        self.assertEqual(dx, {1: 100, '2': '200'})
 
-        dx = Dixt([(1, 1), ('2', '2')], a='a', b='b')
-        self.assertEqual(dx, {1: 1, '2': '2', 'a': 'a', 'b': 'b'})
+        dx = Dixt([(1, 100), ('2', '200')], a='a', b='b')
+        self.assertEqual(dx, {1: 100, '2': '200', 'a': 'a', 'b': 'b'})
+
+        # limitation:
+        # due to the __new__ function using the zip iterator,
+        # data must be wrapped first
+        dx = Dixt(list(zip([1, '2'], [100, '200'])))
+        self.assertEqual(dx, {1: 100, '2': '200'})
+
+        dx = Dixt(tuple(zip([1, '2'], [100, '200'])))
+        self.assertEqual(dx, {1: 100, '2': '200'})
+
+        dx = Dixt(dict(zip([1, '2'], [100, '200'])))
+        self.assertEqual(dx, {1: 100, '2': '200'})
 
     def test__init__accepts_another_dixt_object(self):
         dx = Dixt({1: 1})
         self.assertEqual(Dixt(dx), {1: 1})
+
+    def test__init__should_not_change_data_type(self):
+        dx = Dixt(a=(1, 2, 3))
+        self.assertEqual(dx, {'a': (1, 2, 3)})
+
+        dx = Dixt(a={1, 2, 3})
+        self.assertEqual(dx, {'a': {1, 2, 3}})
 
     def test__init__accepts_kwargs(self):
         dx = Dixt(alpha='α', beta='β', gamma='γ')
@@ -315,9 +334,9 @@ class TestDixt(unittest.TestCase):
     def test__setitem__nonexistent_attributes(self):
         dx = Dixt()
         dx['a'] = 1
-        dx['b'] = (2, 3)  # converted to list
+        dx['b'] = (2, 3)
         dx[123] = "cc"
-        self.assertEqual(dx, {'a': 1, 'b': [2, 3], 123: 'cc'})
+        self.assertEqual(dx, {'a': 1, 'b': (2, 3), 123: 'cc'})
 
     def test__setattr__setitem__hype_when_value_is_dict_or_dixt(self):
         dxa = Dixt(a=1, b={'bb': 2})
@@ -685,6 +704,28 @@ class TestDixt(unittest.TestCase):
     def test__keymeta__hidden_flag__raises_error_when_invalid_value(self):
         with self.assertRaises(TypeError):
             self.dixt.keymeta('extra', hidden=2)
+
+    def test__reverse(self):
+        alpha = ['jan', 100, 1.1, (3, 5)]
+        beta = ['feb', 200, 2.2, (7, 11)]
+        dx = Dixt(dict(zip(alpha, beta)))
+        rdx = dx.reverse()
+        self.assertEqual(rdx, dict(zip(beta, alpha)))
+
+    def test__reverse__exclude_hidden_items(self):
+        dx = Dixt(a=100, b=200)
+        dx.keymeta('a', hidden=True)
+        self.assertEqual(dx.reverse(), {200: 'b'})
+
+    def test__reverse__raise_error_on_hashable_values(self):
+        with self.assertRaises(TypeError):
+            Dixt(a=100, b=[1, 2, 3]).reverse()
+
+        with self.assertRaises(TypeError):
+            Dixt(a=100, b={2: 200}).reverse()
+
+        with self.assertRaises(TypeError):
+            Dixt(a=100, b={200, 300}).reverse()
 
     def _assert_obj_tree_has_no_dixt_object(self, obj):
         self.assertNotIsInstance(obj, Dixt)

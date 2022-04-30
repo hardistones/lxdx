@@ -429,6 +429,17 @@ class Dixt(MutableMapping):
         """
         return super().popitem()
 
+    def reverse(self):
+        """Reverse the key-value map on the first layer items with hashable values.
+        See `hashable <https://docs.python.org/3/glossary.html#term-hashable>`_
+        for more info.
+
+        Any item flagged as hidden will be excluded.
+
+        :raises TypeError: If any value is non-hashable.
+        """
+        return Dixt({value: key for key, value in self.__data__.items()})
+
     def setdefault(self, key, default=None) -> Any:
         """Get value associated with `key`. If `key` exists, return ``self[key]``;
         otherwise, set ``self[key] = default`` then return `default` value.
@@ -497,9 +508,10 @@ def _hype(spec):
         return spec
 
     if isinstance(spec, (list, tuple)):
-        return [Dixt(item)
-                if isinstance(item, dict) else _hype(item)
-                for item in spec]
+        return spec.__class__(
+            Dixt(item)
+            if isinstance(item, dict) else _hype(item)
+            for item in spec)
 
     if issubclass(type(spec), dict):
         data = {}

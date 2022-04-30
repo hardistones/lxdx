@@ -49,7 +49,7 @@ lxdx only supports **Python 3.9+**, due to the usage of the `union operator`_ fo
 
 Installation
 ------------
-lxdx is available in `PyPI <https://pypi.org/project/lxdx>`_, and installable via ``pip``:
+lxdx is available in `PyPI`_, and installable via ``pip``:
 
 .. code-block:: bash
 
@@ -65,6 +65,7 @@ For bugs, feature, and pull requests:
 .. _dot notation: https://en.wikipedia.org/wiki/Property_(programming)#Dot_notation
 .. _JsonPath: https://github.com/json-path/JsonPath
 .. _union operator: https://www.python.org/dev/peps/pep-0584
+.. _PyPI: https://pypi.org/project/lxdx
 .. _examples: ../html/examples.html
 
 ..
