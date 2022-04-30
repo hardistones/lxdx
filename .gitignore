@@ -9,7 +9,6 @@ __pycache__/
 *.egg
 *.egg-info
 .eggs/
-build/
 dist/
 eggs/
 sdist/
@@ -28,8 +27,19 @@ wheels/
 env/
 venv/
 
-# docs build
-docs/build
+# docs
+docs/source
+docs/build/doctrees
+docs/.coverage
+docs/Makefile
+
+# project
+lxdx
+tests
+.flake8
+CHANGELOG.rst
+poetry.*
+pyproject.toml
 
 # others
 .todo
