@@ -26,6 +26,7 @@ Available flags
     * :py:meth:`json() <lxdx.Dixt.json>`
     * :py:meth:`is_supermap_of() <lxdx.Dixt.is_supermap_of>`
     * :py:meth:`is_submap_of() <lxdx.Dixt.is_submap_of>`
+    * :py:meth:`reverse() <lxdx.Dixt.reverse>`
 
     Flagged items are also hidden from the operators:
 

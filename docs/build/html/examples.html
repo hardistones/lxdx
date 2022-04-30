@@ -6,7 +6,7 @@
 <link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="next" title="lxdx Reference" href="modules.html" /><link rel="prev" title="Metadata" href="metadata.html" />
 
     <meta name="generator" content="sphinx-4.2.0, furo 2022.04.07"/>
-        <title>Examples - lxdx 0.3.0 documentation</title>
+        <title>Examples - lxdx 0.4.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?digest=68f4518137b9aefe99b631505a2064c3c42c9852" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -123,7 +123,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="index.html"><div class="brand">lxdx 0.3.0 documentation</div></a>
+      <a href="index.html"><div class="brand">lxdx 0.4.0 documentation</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -146,7 +146,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="index.html">
   
   
-  <span class="sidebar-brand-text">lxdx 0.3.0 documentation</span>
+  <span class="sidebar-brand-text">lxdx 0.4.0 documentation</span>
   
 </a><form class="sidebar-search-container" method="get" action="search.html" role="search">
   <input class="sidebar-search" placeholder=Search name="q" aria-label="Search">
@@ -238,6 +238,20 @@
 <span class="k">assert</span> <span class="n">ex</span> <span class="o">==</span> <span class="n">dx</span>
 </pre></div>
 </div>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p><code class="docutils literal notranslate"><span class="pre">Dixt</span></code> cannot accept iterators as data due to some internal handling.
+Iterators must be wrapped/converted first to <code class="docutils literal notranslate"><span class="pre">dict</span></code> or
+a <code class="docutils literal notranslate"><span class="pre">list</span></code>/<code class="docutils literal notranslate"><span class="pre">tuple</span></code> of key-value pairs.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">alpha</span><span class="p">,</span> <span class="n">omega</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="s1">'a'</span><span class="p">],</span> <span class="p">[</span><span class="mi">9</span><span class="p">,</span> <span class="s1">'z'</span><span class="p">]</span>
+
+<span class="k">assert</span> <span class="n">Dixt</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">omega</span><span class="p">))</span> <span class="o">==</span> <span class="p">{}</span>
+<span class="k">assert</span> <span class="n">Dixt</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">omega</span><span class="p">)))</span> <span class="o">==</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="mi">9</span><span class="p">,</span> <span class="s1">'a'</span><span class="p">:</span> <span class="s1">'z'</span><span class="p">}</span>
+<span class="k">assert</span> <span class="n">Dixt</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">omega</span><span class="p">)))</span> <span class="o">==</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="mi">9</span><span class="p">,</span> <span class="s1">'a'</span><span class="p">:</span> <span class="s1">'z'</span><span class="p">}</span>
+<span class="k">assert</span> <span class="n">Dixt</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">omega</span><span class="p">)))</span> <span class="o">==</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="mi">9</span><span class="p">,</span> <span class="s1">'a'</span><span class="p">:</span> <span class="s1">'z'</span><span class="p">}</span>
+</pre></div>
+</div>
+</div>
 </section>
 <section id="merging">
 <h2>Merging<a class="headerlink" href="#merging" title="Permalink to this headline">#</a></h2>
@@ -250,8 +264,8 @@ the left side, if any of the first layer keys are the same.</p>
 <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ex</span><span class="p">,</span> <span class="n">Dixt</span><span class="p">)</span>
 </pre></div>
 </div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
 <p>Only when a <code class="docutils literal notranslate"><span class="pre">Dixt</span></code> object is at the left of the operator will
 the resulting object a <code class="docutils literal notranslate"><span class="pre">Dixt</span></code> object, otherwise <code class="docutils literal notranslate"><span class="pre">dict</span></code>.</p>
 </div>
@@ -273,10 +287,16 @@ See the <a class="reference internal" href="dixt.html#dixt-class-label"><span cl
 <span class="k">assert</span> <span class="n">dx</span><span class="o">.</span><span class="n">product_name</span> <span class="o">==</span> <span class="n">dx</span><span class="p">[</span><span class="s1">'Product Name'</span><span class="p">]</span> <span class="o">==</span> <span class="s1">'Data Blue'</span>
 
 <span class="n">dx</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">content_type</span> <span class="o">=</span> <span class="s1">'application/xml'</span>
-<span class="k">assert</span> <span class="n">dx</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">content_type</span> <span class="o">==</span> <span class="n">dx</span><span class="p">[</span><span class="s1">'metadata'</span><span class="p">][</span><span class="s1">'Content-Type'</span><span class="p">]</span> <span class="o">==</span> <span class="s1">'application/xml'</span>
+<span class="k">assert</span> <span class="n">dx</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">content_type</span> <span class="o">==</span> <span class="n">dx</span><span class="p">[</span><span class="s1">'metadata'</span><span class="p">][</span><span class="s1">'Content-Type'</span><span class="p">]</span> <span class="o">==</span> <span class="s1">'application/xml</span>
+
+<span class="c1"># setting items to a Dixt object inside of a list</span>
+<span class="n">dx</span><span class="o">.</span><span class="n">some_list</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">some_key</span> <span class="o">=</span> <span class="s1">'new value'</span>
+<span class="k">assert</span> <span class="s1">'some-key'</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">dx</span><span class="o">.</span><span class="n">some_list</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+<span class="k">assert</span> <span class="s1">'some_key'</span> <span class="ow">in</span> <span class="n">dx</span><span class="o">.</span><span class="n">some_list</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
 
 <span class="c1"># depending on the original key,</span>
 <span class="c1"># this could be equivalent to dx['product-list']['names'][-2:]</span>
+<span class="c1"># or dx['Product-List']['names'][-2:]</span>
 <span class="n">dx</span><span class="o">.</span><span class="n">product_list</span><span class="o">.</span><span class="n">names</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:]</span>
 </pre></div>
 </div>
@@ -386,6 +406,24 @@ as basis when calling <code class="docutils literal notranslate"><span class="pr
 <p>These methods are included to ease up conversion from and to JSON string.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">json_str</span> <span class="o">=</span> <span class="s1">'{"a": "JSON string"}'</span>
 <span class="k">assert</span> <span class="n">Dixt</span><span class="o">.</span><span class="n">from_json</span><span class="p">(</span><span class="n">json_str</span><span class="p">)</span><span class="o">.</span><span class="n">json</span><span class="p">()</span> <span class="o">==</span> <span class="n">json_str</span>
+</pre></div>
+</div>
+<div class="line-block">
+<div class="line"><br/></div>
+</div>
+<p><a class="reference internal" href="dixt.html#lxdx.Dixt.reverse" title="lxdx.Dixt.reverse"><code class="xref py py-meth docutils literal notranslate"><span class="pre">reverse()</span></code></a></p>
+<p>This function will reverse the position of items – keys become values and
+values become keys.</p>
+<p>As with <code class="docutils literal notranslate"><span class="pre">dict</span></code>, only <a class="reference external" href="https://docs.python.org/3/glossary.html#term-hashable">hashable</a> types are accepted as keys.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Hidden items (flagged with metadata) are excluded from the output.</p>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">dx</span> <span class="o">=</span> <span class="n">Dixt</span><span class="p">(</span><span class="n">alpha</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">dx</span><span class="o">.</span><span class="n">reverse</span><span class="p">()</span> <span class="o">==</span> <span class="p">{</span><span class="mi">100</span><span class="p">:</span> <span class="s1">'alpha'</span><span class="p">,</span> <span class="mi">200</span><span class="p">:</span> <span class="s1">'beta'</span><span class="p">}</span>
+
+<span class="n">dx</span> <span class="o">=</span> <span class="n">Dixt</span><span class="p">(</span><span class="n">alpha</span><span class="o">=</span><span class="p">{</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">})</span>
+<span class="n">dx</span><span class="o">.</span><span class="n">reverse</span><span class="p">()</span>  <span class="c1"># TypeError</span>
 </pre></div>
 </div>
 </section>
