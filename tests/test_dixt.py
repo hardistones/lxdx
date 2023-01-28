@@ -241,26 +241,28 @@ class TestDixt(unittest.TestCase):
     def test__getattr__dot_notation__raises_error_when_nonexistent(self):
         self.assertRaises(KeyError, lambda: self.dixt.nonexistent)
 
-    def test__get__returns_value_of_existing_attributes(self):
+    def test__getx__returns_value_of_existing_attributes(self):
         headers = {'Accept-Encoding': 'gzip',
                    'Content-Type': 'application/json'}
-        self.assertEqual(self.dixt.get('headers'), headers)
-        self.assertEqual(self.dixt.headers.get('Accept-Encoding'), 'gzip')
+        self.assertEqual(self.dixt.getx('headers'), headers)
+        self.assertEqual(self.dixt.headers.getx('Accept-Encoding'), 'gzip')
+        self.assertEqual(self.dixt.body.f.getx('x', 'y'), (None, [{'p': 5}, [8]]))
 
-    def test__get__returns_default_value_of_nonexistent_attributes(self):
-        self.assertEqual(self.dixt.get('ghost', default=-1), -1)
-        self.assertEqual(self.dixt.headers.get('Lost-Item', default=object), object)
+    def test__getx__returns_default_value_of_nonexistent_attributes(self):
+        self.assertEqual(self.dixt.getx('ghost', default=-1), -1)
+        self.assertEqual(self.dixt.headers.getx('Lost-Item', default=object), object)
 
-        self.assertEqual(self.dixt.get('ghost', default=[1]), 1)
-        self.assertEqual(self.dixt.get('ghost', 'invisible', default=2), (2, 2))
-        self.assertEqual(self.dixt.get('ghost', 'invisible', default=[4, 5]), (4, 5))
+        self.assertEqual(self.dixt.getx('ghost', default=[1]), 1)
+        self.assertEqual(self.dixt.body.f.getx('x', default='X'), None)
+        self.assertEqual(self.dixt.getx('ghost', 'invisible', default=2), (2, 2))
+        self.assertEqual(self.dixt.getx('ghost', 'invisible', default=[4, 5]), (4, 5))
 
-    def test__get__raises_error_when_defaults_dont_match_with_attrs_len(self):
+    def test__getx__raises_error_when_defaults_dont_match_with_attrs_len(self):
         with self.assertRaises(ValueError):
-            self.dixt.get('ghost', 'invisible', default=(1, 2, 3))
+            self.dixt.getx('ghost', 'invisible', default=(1, 2, 3))
 
         with self.assertRaises(ValueError):
-            self.dixt.get('ghost', 'invisible', default=[3])
+            self.dixt.getx('ghost', 'invisible', default=[3])
 
     def test__setattr__builtin_function(self):
         setattr(self.dixt, 'name', 'value')
@@ -589,7 +591,8 @@ class TestDixt(unittest.TestCase):
             {'body': {'e': [2, {'g': 9.806}]}},
             {'body': {'f': {'y': [{'p': 5}, [8]]}}},
             {'extra': 'info'},
-            [('extra', 'info')]
+            [('extra', 'info')],
+            {'headers': {}, 'body': {}}
         ]
         for criterion in criteria:
             self.assertTrue(Dixt(criterion).is_submap_of(self.dixt))
@@ -597,8 +600,9 @@ class TestDixt(unittest.TestCase):
 
         criteria = [
             {1: 1},
-            {'extra': 'dissimilar'},
-            {'body': {'f': {'y': [None]}}}
+            {'extra': ''},
+            {'body': {'f': {'y': [None]}}},
+            {'headers': {}, 'body': {}, 'nonexistent': {}}
         ]
         for criterion in criteria:
             self.assertFalse(Dixt(criterion).is_submap_of(self.dixt))

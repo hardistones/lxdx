@@ -247,8 +247,9 @@ class Dixt(MutableMapping):
 
         return _dictify(self)
 
-    def get(self, *attrs, default=None) -> Any:
-        """Get the items from a sequence of `attrs`.
+    def getx(self, *attrs, default=None) -> Any:
+        """Get one or more items specified in `attrs`.
+        Replace nonexistent item(s) with value(s) in default.
 
         :param attrs: One or more normalised or non-normalised keys to get items of.
         :param default: Use as replacement value for all keys not found
