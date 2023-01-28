@@ -8,6 +8,7 @@ v0.4.0
 * New function
     - ``reverse()``
 * More documentation
+* Rename ``get()`` to ``getx()`` to not interfere with original functionality.
 
 v0.3.0
 ******
