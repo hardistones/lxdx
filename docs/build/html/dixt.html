@@ -6,7 +6,7 @@
 <link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="next" title="Changelog" href="changelog.html" /><link rel="prev" title="lxdx Reference" href="modules.html" />
 
     <meta name="generator" content="sphinx-4.2.0, furo 2022.04.07"/>
-        <title>Dixt - lxdx 0.4.0 documentation</title>
+        <title>Dixt - lxdx 0.4.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?digest=68f4518137b9aefe99b631505a2064c3c42c9852" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
@@ -123,7 +123,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="index.html"><div class="brand">lxdx 0.4.0 documentation</div></a>
+      <a href="index.html"><div class="brand">lxdx 0.4.1 documentation</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -146,7 +146,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="index.html">
   
   
-  <span class="sidebar-brand-text">lxdx 0.4.0 documentation</span>
+  <span class="sidebar-brand-text">lxdx 0.4.1 documentation</span>
   
 </a><form class="sidebar-search-container" method="get" action="search.html" role="search">
   <input class="sidebar-search" placeholder=Search name="q" aria-label="Search">
@@ -265,32 +265,8 @@ key whether it is found or not.</p></li>
 </dd></dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="lxdx.Dixt.get">
-<span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">attrs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><span class="pre">Any</span></span></span><a class="headerlink" href="#lxdx.Dixt.get" title="Permalink to this definition">#</a></dt>
-<dd><p>Get the items from a sequence of <cite>attrs</cite>.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>attrs</strong> – One or more normalised or non-normalised keys to get items of.</p></li>
-<li><p><strong>default</strong> – Use as replacement value for all keys not found
-if set with a non-<code class="docutils literal notranslate"><span class="pre">list</span></code>/<code class="docutils literal notranslate"><span class="pre">tuple</span></code> value.
-If <code class="docutils literal notranslate"><span class="pre">list</span></code> or <code class="docutils literal notranslate"><span class="pre">tuple</span></code>, a one-to-one correspondence
-of values to <cite>attrs</cite> when not found.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p><p>A <code class="docutils literal notranslate"><span class="pre">tuple</span></code> of associated item of the <cite>attrs</cite>, replacing items
-of any key not found with the <cite>default</cite>.</p>
-<p>Except when <code class="docutils literal notranslate"><span class="pre">len(attrs)</span> <span class="pre">==</span> <span class="pre">1</span></code>, in which the method
-returns the actual item and not <code class="docutils literal notranslate"><span class="pre">tuple</span></code>.</p>
-</p>
-</dd>
-<dt class="field-odd">Raises</dt>
-<dd class="field-odd"><p><strong>ValueError</strong> – When <code class="docutils literal notranslate"><span class="pre">len(default)</span> <span class="pre">!=</span> <span class="pre">len(attrs)</span></code>, only when
-default is a <code class="docutils literal notranslate"><span class="pre">list</span></code>/<code class="docutils literal notranslate"><span class="pre">tuple</span></code>.</p>
-</dd>
-</dl>
-<p>Similar method: <a class="reference internal" href="#lxdx.Dixt.setdefault" title="lxdx.Dixt.setdefault"><code class="xref py py-meth docutils literal notranslate"><span class="pre">setdefault()</span></code></a>.</p>
-</dd></dl>
+<span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">k</span></em><span class="optional">[</span>, <em class="sig-param"><span class="pre">d</span></em><span class="optional">]</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><span class="pre">D[k]</span> <span class="pre">if</span> <span class="pre">k</span> <span class="pre">in</span> <span class="pre">D,</span> <span class="pre">else</span> <span class="pre">d.</span>  <span class="pre">d</span> <span class="pre">defaults</span> <span class="pre">to</span> <span class="pre">None.</span></span></span><a class="headerlink" href="#lxdx.Dixt.get" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="lxdx.Dixt.get_from">
 <span class="sig-name descname"><span class="pre">get_from</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">/</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><span class="pre">Any</span></span></span><a class="headerlink" href="#lxdx.Dixt.get_from" title="Permalink to this definition">#</a></dt>
@@ -325,6 +301,35 @@ The series of keys must be the normalised keys.</p>
 <li><p>Only one (1) item can be accessed from any <code class="docutils literal notranslate"><span class="pre">list</span></code>. That is, no slicing.</p></li>
 </ul>
 </div>
+</dd></dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="lxdx.Dixt.getx">
+<span class="sig-name descname"><span class="pre">getx</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">attrs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><span class="pre">Any</span></span></span><a class="headerlink" href="#lxdx.Dixt.getx" title="Permalink to this definition">#</a></dt>
+<dd><p>Get one or more items specified in <cite>attrs</cite>.
+Replace nonexistent item(s) with value(s) in default.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>attrs</strong> – One or more normalised or non-normalised keys to get items of.</p></li>
+<li><p><strong>default</strong> – Use as replacement value for all keys not found
+if set with a non-<code class="docutils literal notranslate"><span class="pre">list</span></code>/<code class="docutils literal notranslate"><span class="pre">tuple</span></code> value.
+If <code class="docutils literal notranslate"><span class="pre">list</span></code> or <code class="docutils literal notranslate"><span class="pre">tuple</span></code>, a one-to-one correspondence
+of values to <cite>attrs</cite> when not found.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>A <code class="docutils literal notranslate"><span class="pre">tuple</span></code> of associated item of the <cite>attrs</cite>, replacing items
+of any key not found with the <cite>default</cite>.</p>
+<p>Except when <code class="docutils literal notranslate"><span class="pre">len(attrs)</span> <span class="pre">==</span> <span class="pre">1</span></code>, in which the method
+returns the actual item and not <code class="docutils literal notranslate"><span class="pre">tuple</span></code>.</p>
+</p>
+</dd>
+<dt class="field-odd">Raises</dt>
+<dd class="field-odd"><p><strong>ValueError</strong> – When <code class="docutils literal notranslate"><span class="pre">len(default)</span> <span class="pre">!=</span> <span class="pre">len(attrs)</span></code>, only when
+default is a <code class="docutils literal notranslate"><span class="pre">list</span></code>/<code class="docutils literal notranslate"><span class="pre">tuple</span></code>.</p>
+</dd>
+</dl>
+<p>Similar method: <a class="reference internal" href="#lxdx.Dixt.setdefault" title="lxdx.Dixt.setdefault"><code class="xref py py-meth docutils literal notranslate"><span class="pre">setdefault()</span></code></a>.</p>
 </dd></dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="lxdx.Dixt.is_submap_of">
