@@ -129,15 +129,14 @@ class Dixt(MutableMapping):
             if origkey in self.whats_hidden():
                 return self.__hidden__[origkey]
             return self.__data__[origkey]
-
-        try:
-            return super().__getattribute__(key)
-        except AttributeError as e:
-            raise KeyError(key) from e
+        return super().__getattribute__(key)
 
     def __getitem__(self, key):
-        key = self.__get_orig_key(key) or key
-        return self.__getattr__(key)
+        try:
+            key = self.__get_orig_key(key) or key
+            return self.__getattr__(key)
+        except AttributeError as e:
+            raise KeyError(key) from e
 
     def __iter__(self):
         return iter(self.__data__)
@@ -278,7 +277,7 @@ class Dixt(MutableMapping):
         for i, key in enumerate(attrs):
             try:
                 result.append(self.__getattr__(key))
-            except KeyError:
+            except AttributeError:
                 result.append(default[i])
 
         return tuple(result) if len(result) > 1 else result[0]
@@ -385,7 +384,7 @@ class Dixt(MutableMapping):
 
         supported_flags = set(self.__metas__).intersection(flags)
         for flag in supported_flags:
-            if not isinstance(flags[flag], self.__metas__[flag]):
+            if not isinstance(flags[flag], self.__metas__[flag]):  # noqa
                 raise TypeError(f'{flag} must be {self.__metas__[flag]}')
 
         retval = {}
@@ -414,12 +413,14 @@ class Dixt(MutableMapping):
                           and default value (other than ``Ellipsis``)
                           is not specified.
         """
-        if retval := self.get(key):
+        try:
+            retval = self.__getattr__(key)
             self.__delattr__(key)
             return retval
-        if default == Ellipsis:
-            raise KeyError(f"Dixt object has no key '{key}'")
-        return default
+        except AttributeError as e:
+            if default == Ellipsis:
+                raise AttributeError(f"Dixt object has no key '{key}'") from e
+            return default
 
     def popitem(self) -> tuple:
         """Returns a ``tuple`` of key-value pair.

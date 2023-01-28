@@ -239,7 +239,7 @@ class TestDixt(unittest.TestCase):
         self.assertEqual(dx.echo_foxtrot, 'ef')
 
     def test__getattr__dot_notation__raises_error_when_nonexistent(self):
-        self.assertRaises(KeyError, lambda: self.dixt.nonexistent)
+        self.assertRaises(AttributeError, lambda: self.dixt.nonexistent)
 
     def test__getx__returns_value_of_existing_attributes(self):
         headers = {'Accept-Encoding': 'gzip',
@@ -311,7 +311,7 @@ class TestDixt(unittest.TestCase):
         self.assertEqual(self.dixt['body']['f']['x'], None)
         self.assertEqual(self.dixt['extra'], 'info')
 
-    def test__getitem__raises_attribute_error_when_missing(self):
+    def test__getitem__raises_key_error_when_missing(self):
         self.assertRaises(KeyError, lambda: self.dixt['missing_attribute'])
 
     def test__setitem__existing_attributes(self):
@@ -353,7 +353,7 @@ class TestDixt(unittest.TestCase):
         self.assertEqual(self.dixt.pop('extra'), 'info')
         self.assertNotIn('extra', self.dixt)
         self.assertNotIn('extra', self.dixt.__keymap__)
-        with self.assertRaises(KeyError):
+        with self.assertRaises(AttributeError):
             self.dixt.pop('extra')
         self.assertEqual(self.dixt.pop('extra', 'default-value'), 'default-value')
 

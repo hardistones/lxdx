@@ -9,6 +9,7 @@ v0.4.0
     - ``reverse()``
 * More documentation
 * Rename ``get()`` to ``getx()`` to not interfere with original functionality.
+* Fix error when object is passed to ``copy.deepcopy()``.
 
 v0.3.0
 ******
