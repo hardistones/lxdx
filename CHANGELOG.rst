@@ -10,6 +10,7 @@ v0.4.0
 * More documentation
 * Rename ``get()`` to ``getx()`` to not interfere with original functionality.
 * Fix error when object is passed to ``copy.deepcopy()``.
+* Fix consumption of iterators in ``__new__()``.
 
 v0.3.0
 ******

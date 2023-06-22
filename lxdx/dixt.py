@@ -33,6 +33,7 @@ import re
 
 from collections import defaultdict
 from collections.abc import KeysView, ItemsView, ValuesView, MutableMapping
+from copy import deepcopy
 from typing import Any, Dict, List, Mapping, Tuple, Union, Hashable
 
 __all__ = ['Dixt']
@@ -53,7 +54,9 @@ class Dixt(MutableMapping):
     __meta_resets__ = {'hidden': False}
 
     def __new__(cls, data=None, /, **kwargs):
-        spec = dict(data or {}) | kwargs
+        # use deepcopy 'cause sometimes data can be an iterator,
+        # so it won't be 'used up' before __init__()
+        spec = dict(deepcopy(data) or {}) | kwargs
         dx = super().__new__(cls)
 
         # holds all normalised keys including non-str keys

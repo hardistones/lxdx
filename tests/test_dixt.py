@@ -88,6 +88,10 @@ class TestDixt(unittest.TestCase):
         dx = Dixt({1: 1})
         self.assertEqual(Dixt(dx), {1: 1})
 
+    def test__init__accepts_iterators(self):
+        dx = Dixt(zip(['a', 'b'], [1, 2]))
+        self.assertEqual(dx, {'a': 1, 'b': 2})
+
     def test__init__should_not_change_data_type(self):
         dx = Dixt(a=(1, 2, 3))
         self.assertEqual(dx, {'a': (1, 2, 3)})
@@ -220,6 +224,9 @@ class TestDixt(unittest.TestCase):
 
         dx = {'alpha': Dixt(a='a'), 'omega': Dixt(o='o')}
         self.assertEqual(str(dx), "{'alpha': {'a': 'a'}, 'omega': {'o': 'o'}}")
+
+    def test__getattr__builtin(self):
+        self.assertIsNone(getattr(self.dixt, 'nonexistent', None))
 
     def test__getattr__dot_notation(self):
         expected = {'C-D': 1.2,
