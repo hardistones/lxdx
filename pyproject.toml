@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lxdx"
-version = "0.4.3"
+version = "0.5.0"
 authors = ["Hardy Stones <hardistones@hotmail.com>"]
 description = "Just an extended Python dict with attribute-accessibility, extra methods, and metadata"
 homepage = "https://github.com/hardistones/lxdx"

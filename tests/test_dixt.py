@@ -38,6 +38,33 @@ from collections.abc import KeysView, ValuesView, ItemsView
 from lxdx import Dixt
 
 
+INVALID_PATHS = {
+    IndexError: ['$.body.e[100]'],
+    KeyError: [
+        '$.extra.info',
+        '$.not_heading.nonexistent',
+        '$.headers.nonexistent'
+    ],
+    TypeError: [123, object()],
+    ValueError: [
+        '',
+        'any.string',
+        '$',
+        '$.',
+        '$..',
+        '$[0]',
+        '$.body.e.[0]',
+        'a.b[0]',
+        '$.a[2',
+        '$.a.b[]',
+        '$.a[-1]',
+        '$.a[1:]',
+        '$.a[:1]',
+        '$.a[::]'
+    ],
+}
+
+
 class TestDixt(unittest.TestCase):
     def setUp(self):
         self.dixt = Dixt({
@@ -544,6 +571,7 @@ class TestDixt(unittest.TestCase):
 
     def test__get_from(self):
         queries = [
+            ('$.headers.content_type', 'application/json'),
             ('$.extra', 'info'),
             ('$.body.e[0]', 2),
             ('$.body.e[1].g', 9.806),
@@ -553,36 +581,36 @@ class TestDixt(unittest.TestCase):
             self.assertEqual(self.dixt.get_from(path), value)
 
     def test__get_from__invalid_path(self):
-        error_queries = {
-            IndexError: ['$.body.e[100]'],
-            KeyError: [
-                '$.extra.info',
-                '$.not_heading.nonexistent',
-                '$.headers.nonexistent'
-            ],
-            TypeError: [123, object()],
-            ValueError: [
-                '',
-                'any.string',
-                '$',
-                '$.',
-                '$..',
-                '$[0]',
-                '$.body.e.[0]',
-                'a.b[0]',
-                '$.a[2',
-                '$.a.b[]',
-                '$.a[-1]',
-                '$.a[1:]',
-                '$.a[:1]',
-                '$.a[::]'
-            ],
-        }
-
-        for exc, queries in error_queries.items():
+        for exc, queries in INVALID_PATHS.items():
             for path in queries:
                 with self.assertRaises(exc):
                     self.dixt.get_from(path)
+
+    def test__set_by_path(self):
+        self.dixt.set_by_path('$.headers.content_type', 'application/text')
+        self.assertEqual(self.dixt['headers']['Content-Type'], 'application/text')
+
+        self.dixt.set_by_path('$.body.e[0]', 22)
+        self.assertEqual(self.dixt['body']['e'][0], 22)
+        self.assertEqual(self.dixt.get_from('$.body.e[0]'), 22)
+
+        self.dixt.set_by_path('$.body.f.x', 'xi')
+        self.assertEqual(self.dixt['body']['f']['x'], 'xi')
+        self.assertEqual(self.dixt.get_from('$.body.f.x'), 'xi')
+
+        self.dixt.set_by_path('$.body.f.y[0].p', 55)
+        self.assertEqual(self.dixt['body']['f']['y'][0]['p'], 55)
+        self.assertEqual(self.dixt.get_from('$.body.f.y[0].p'), 55)
+
+        self.dixt.set_by_path('$.body.f.y[1][0]', 88)
+        self.assertEqual(self.dixt['body']['f']['y'][1][0], 88)
+        self.assertEqual(self.dixt.get_from('$.body.f.y[1][0]'), 88)
+
+    def test__set_by_path__invalid_path(self):
+        for exc, queries in INVALID_PATHS.items():
+            for path in queries:
+                with self.assertRaises(exc):
+                    self.dixt.set_by_path(path, object())
 
     def test__json__conversion_to_json_format(self):
         json_equivalent = json.dumps(self.dict_equiv)

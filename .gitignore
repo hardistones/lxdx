@@ -33,6 +33,8 @@ docs/build
 
 # others
 .todo
+.scratch
+SCRATCH
 
 # sublime projects and workspaces
 *.sublime-workspace

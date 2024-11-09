@@ -308,17 +308,9 @@ class Dixt(MutableMapping):
             - Path is only evaluated for public *attributes*.
             - Only one (1) item can be accessed from any ``list``. That is, no slicing.
         """
-        if not isinstance(path, str):
-            raise TypeError(f'Invalid path: {path}')
-        if not path.startswith('$.'):
-            raise ValueError(f'Invalid path: {path}')
-        if path.strip().lstrip('$.') == '':
-            raise ValueError(f'Invalid path: {path}')
-        if re.match(r'^\$(\.\w+(\[\d+])*)+$', path) is None:
-            raise ValueError(f'Invalid path: {path}')
-
+        _validate_path(path)
         _path = path.replace('[', '.[').strip('$.').split('.')
-        value = _traverse(self, _path)
+        value = _get_by_path(self, _path)
         if isinstance(value, Exception):
             raise value from None
         return value
@@ -445,6 +437,11 @@ class Dixt(MutableMapping):
         """
         return Dixt({value: key for key, value in self.__data__.items()})
 
+    def set_by_path(self, path: str, value) -> None:
+        _validate_path(path)
+        _path = path.replace('[', '.[').strip('$.').split('.')
+        _set_by_path(self, _path, value)
+
     def setdefault(self, key, default=None) -> Any:
         """Get value associated with `key`. If `key` exists, return ``self[key]``;
         otherwise, set ``self[key] = default`` then return `default` value.
@@ -565,7 +562,18 @@ def _contents(container, *keys):
     return tuple(result), not_found
 
 
-def _traverse(obj, attrs: list):
+def _validate_path(path):
+    if not isinstance(path, str):
+        raise TypeError(f'Invalid path: {path}')
+    if not path.startswith('$.'):
+        raise ValueError(f'Invalid path: {path}')
+    if path.strip().lstrip('$.') == '':
+        raise ValueError(f'Invalid path: {path}')
+    if re.match(r'^\$(\.\w+(\[\d+])*)+$', path) is None:
+        raise ValueError(f'Invalid path: {path}')
+
+
+def _get_by_path(obj: Dixt, attrs: list):
     if not attrs:
         # We have successfully got obj from previous call
         # so obj must be the correct value.
@@ -578,11 +586,37 @@ def _traverse(obj, attrs: list):
             _obj = eval('obj' + attr)
         except IndexError as e:
             return e
-        return _traverse(_obj, attrs)
+        return _get_by_path(_obj, attrs)
 
     if isinstance(obj, Dixt):
-        if attr not in obj.__data__:
+        if obj.getx(attr, default=...) is Ellipsis:
             return KeyError(attr)
-        return _traverse(getattr(obj, attr), attrs)
+        return _get_by_path(getattr(obj, attr), attrs)
 
     return KeyError(attr)
+
+
+def _set_by_path(obj: Dixt, attrs: list, value):
+    attr = attrs.pop(0)
+
+    if isinstance(obj, (list, tuple)):
+        try:
+            _obj = eval('obj' + attr)
+        except IndexError as e:
+            raise e
+
+        if not attrs:
+            obj[int(attr.strip('[]'))] = value
+        else:
+            _set_by_path(_obj, attrs, value)
+
+    elif isinstance(obj, Dixt):
+        if obj.getx(attr, default=...) is Ellipsis:
+            raise KeyError(attr)
+        if not attrs:
+            setattr(obj, attr, value)
+        else:
+            _set_by_path(getattr(obj, attr), attrs, value)
+
+    else:
+        raise KeyError(attr)

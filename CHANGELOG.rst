@@ -1,6 +1,11 @@
 Changelog
 =========
 
+v0.5.0
+******
+
+* New `set_by_path()` method to set value by path
+
 v0.4.0
 ******
 
