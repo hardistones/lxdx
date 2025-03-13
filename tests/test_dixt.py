@@ -345,8 +345,16 @@ class TestDixt(unittest.TestCase):
         self.assertEqual(self.dixt['body']['f']['x'], None)
         self.assertEqual(self.dixt['extra'], 'info')
 
+    def test__getitem__key_that_is_implicit_false(self):
+        self.assertEqual(Dixt({0: 1})[0], 1)
+        self.assertEqual(Dixt({False: 1})[False], 1)
+        self.assertEqual(Dixt({(): 1})[()], 1)
+
     def test__getitem__raises_key_error_when_missing(self):
         self.assertRaises(KeyError, lambda: self.dixt['missing_attribute'])
+        self.assertRaises(KeyError, lambda: self.dixt[False])
+        self.assertRaises(KeyError, lambda: self.dixt[0])
+        self.assertRaises(KeyError, lambda: self.dixt[()])
 
     def test__setitem__existing_attributes(self):
         dx = Dixt(a=1, b=2, c=3)
