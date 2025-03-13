@@ -104,7 +104,7 @@ class Dixt(MutableMapping):
 
         :raises KeyError: When original key is not found.
         """
-        if origkey := self.__get_orig_key(attr):
+        if (origkey := self.__get_orig_key(attr)) is not Ellipsis:
             if origkey in self.whats_hidden():
                 del self.__hidden__[origkey]
                 del self.__keymeta__[origkey]
@@ -128,7 +128,7 @@ class Dixt(MutableMapping):
             return False
 
     def __getattr__(self, key):
-        if origkey := self.__get_orig_key(key):
+        if (origkey := self.__get_orig_key(key)) is not Ellipsis:
             if origkey in self.whats_hidden():
                 return self.__hidden__[origkey]
             return self.__data__[origkey]
@@ -136,9 +136,10 @@ class Dixt(MutableMapping):
 
     def __getitem__(self, key):
         try:
-            key = self.__get_orig_key(key) or key
-            return self.__getattr__(key)
-        except AttributeError as e:
+            if (_key := self.__get_orig_key(key)) is Ellipsis:
+                _key = key
+            return self.__getattr__(_key)
+        except (AttributeError, TypeError) as e:
             raise KeyError(key) from e
 
     def __iter__(self):
@@ -152,7 +153,8 @@ class Dixt(MutableMapping):
 
     def __setattr__(self, attr, value):
         nkey = _normalise_key(attr)
-        origkey = self.__get_orig_key(attr) or attr
+        if (origkey := self.__get_orig_key(attr)) is Ellipsis:
+            origkey = attr
         if nkey not in self.__keymap__:
             self.__keymap__[nkey] = attr
 
@@ -168,7 +170,7 @@ class Dixt(MutableMapping):
             container[origkey] = _hype(value)
 
     def __setitem__(self, key, value):
-        if origkey := self.__get_orig_key(key):
+        if (origkey := self.__get_orig_key(key)) is not Ellipsis:
             if key != origkey:
                 # No two keys should have the same normalised key,
                 # or the new key will overwrite the other original key.
@@ -480,7 +482,8 @@ class Dixt(MutableMapping):
         return Dixt(json.loads(json_str))  # let json handle errors
 
     def __get_orig_key(self, key):
-        return self.__keymap__.get(_normalise_key(key))
+        """Returns Ellipsis if not found."""
+        return self.__keymap__.get(_normalise_key(key), ...)
 
     def __add_hidden_meta(self, key, value):
         self.__keymeta__[key]['hidden'] = value
