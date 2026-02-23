@@ -50,7 +50,13 @@ furo = "*"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "--capture=no --random-order --timeout=1 --cov=lxdx --cov-report=term-missing"
+addopts = [
+  "--capture=no",
+  "--random-order",
+  "--timeout=1",
+  "--cov=lxdx",
+  "--cov-report=term-missing"
+]
 console_output_style = "count"
 testpaths = ["tests"]
 

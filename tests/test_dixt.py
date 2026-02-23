@@ -453,7 +453,7 @@ class TestDixt(unittest.TestCase):
 
     def test__update__raises_error__argument_is_not_iterable_key_value_pairs(self):
         for arg in ['string', ['list', 1], 1234]:
-            with self.assertRaises(ValueError):
+            with self.assertRaises((ValueError, TypeError)):
                 Dixt(a=1, b=2).update(arg, x=[1, 2])
 
     def test__contains(self):

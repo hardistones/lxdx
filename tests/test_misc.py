@@ -36,7 +36,7 @@ from lxdx import Dixt
 
 class TestMisc(unittest.TestCase):
 
-    def test__dixt_object__must_deep_copiable(self):
+    def test__dixt_object__must_deep_copyable(self):
         a = Dixt(a=1, b={'c': {'d': 4}})
         copied = deepcopy(a)
         self.assertNotEqual(id(a), id(copied))

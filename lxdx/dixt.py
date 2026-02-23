@@ -122,6 +122,8 @@ class Dixt(MutableMapping):
             return self.__data__.__eq__(other.__data__)
         if isinstance(other, Mapping):
             return self.__data__.__eq__(other)
+        if not isinstance(other, (list, tuple, type(None))):
+            return False
         try:
             return self.__data__.__eq__(_dictify_kvp(other))
         except ValueError:
@@ -546,12 +548,13 @@ def _normalise_key(key: Hashable) -> Hashable:
 
 
 def _dictify_kvp(sequence):
+    err_msg = f'Sequence {sequence} is not iterable key-value pairs'
+    if not isinstance(sequence, (list, tuple, Mapping, type(None))):
+        raise TypeError(err_msg)
     try:
         return dict(sequence or {})
     except (TypeError, ValueError) as e:
-        msg = f'Sequence {sequence} is not ' \
-              f'iterable key-value pairs'
-        raise ValueError(msg) from e
+        raise ValueError(err_msg) from e
 
 
 def _contents(container, *keys):
