@@ -36,14 +36,20 @@ from collections import OrderedDict
 from collections.abc import KeysView, ValuesView, ItemsView
 
 from lxdx import Dixt
+from lxdx.dixt import DixtException  # noqa
 
 
-INVALID_PATHS = {
-    IndexError: ['$.body.e[100]'],
+INVALID_QUERIES = {
+    IndexError: [
+        '$.body.e[100]',
+        '$.body.e[-10]',
+    ],
     KeyError: [
         '$.extra.info',
         '$.not_heading.nonexistent',
-        '$.headers.nonexistent'
+        '$.headers.nonexistent',
+        '$.nonexistent[0]',
+        '$.body[1:]',
     ],
     TypeError: [123, object()],
     ValueError: [
@@ -53,16 +59,24 @@ INVALID_PATHS = {
         '$.',
         '$..',
         '$[0]',
-        '$.body.e.[0]',
         'a.b[0]',
-        '$.a[2',
-        '$.a.b[]',
-        '$.a[-1]',
-        '$.a[1:]',
-        '$.a[:1]',
-        '$.a[::]'
+        '$.headers[2',
+        '$.body.f[]',
     ],
 }
+
+VALID_QUERIES = [
+    ('$.headers.content_type', 'application/json'),
+    ('$.extra', 'info'),
+    ('$.body.e[0]', 2),
+    ('$.body.e[-2]', 2),
+    ('$.body.e.[0]', 2),
+    ('$.body.e.[-2]', 2),
+    ('$.body.e[1].g', 9.806),
+    ('$.body.f.y[1][0]', 8),
+    ('$.body.e[1:]', [{'g': 9.806}]),
+    ('$.body.e.[1:]', [{'g': 9.806}]),
+]
 
 
 class TestDixt(unittest.TestCase):
@@ -91,6 +105,15 @@ class TestDixt(unittest.TestCase):
             },
             'extra': 'info'
         }
+
+    def test__init__invalid_data(self):
+        for data in [
+            "string",
+            ["non-key-value pair"],
+            [('a', 'b'), 'c']
+        ]:
+            with self.assertRaises(DixtException):
+                Dixt(data)
 
     def test__init__accepts_key_value_pairs(self):
         dx = Dixt([(1, 100), ('2', '200')])
@@ -453,7 +476,7 @@ class TestDixt(unittest.TestCase):
 
     def test__update__raises_error__argument_is_not_iterable_key_value_pairs(self):
         for arg in ['string', ['list', 1], 1234]:
-            with self.assertRaises(ValueError):
+            with self.assertRaises((ValueError, TypeError)):
                 Dixt(a=1, b=2).update(arg, x=[1, 2])
 
     def test__contains(self):
@@ -578,18 +601,11 @@ class TestDixt(unittest.TestCase):
         self.assertEqual(self.dixt.body.e[1].del_ta, 'δ')
 
     def test__get_from(self):
-        queries = [
-            ('$.headers.content_type', 'application/json'),
-            ('$.extra', 'info'),
-            ('$.body.e[0]', 2),
-            ('$.body.e[1].g', 9.806),
-            ('$.body.f.y[1][0]', 8)
-        ]
-        for path, value in queries:
-            self.assertEqual(self.dixt.get_from(path), value)
+        for path, expected_value in VALID_QUERIES:
+            self.assertEqual(self.dixt.get_from(path), expected_value)
 
     def test__get_from__invalid_path(self):
-        for exc, queries in INVALID_PATHS.items():
+        for exc, queries in INVALID_QUERIES.items():
             for path in queries:
                 with self.assertRaises(exc):
                     self.dixt.get_from(path)
@@ -597,6 +613,9 @@ class TestDixt(unittest.TestCase):
     def test__set_by_path(self):
         self.dixt.set_by_path('$.headers.content_type', 'application/text')
         self.assertEqual(self.dixt['headers']['Content-Type'], 'application/text')
+
+        self.dixt.set_by_path('$.headers.["Content-Type"]', 'application/json')
+        self.assertEqual(self.dixt['headers']['Content-Type'], 'application/json')
 
         self.dixt.set_by_path('$.body.e[0]', 22)
         self.assertEqual(self.dixt['body']['e'][0], 22)
@@ -615,7 +634,7 @@ class TestDixt(unittest.TestCase):
         self.assertEqual(self.dixt.get_from('$.body.f.y[1][0]'), 88)
 
     def test__set_by_path__invalid_path(self):
-        for exc, queries in INVALID_PATHS.items():
+        for exc, queries in INVALID_QUERIES.items():
             for path in queries:
                 with self.assertRaises(exc):
                     self.dixt.set_by_path(path, object())

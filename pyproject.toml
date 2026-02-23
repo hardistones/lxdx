@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lxdx"
-version = "0.5.1"
+version = "0.6.0"
 authors = ["Hardy Stones <hardistones@hotmail.com>"]
 description = "Just an extended Python dict with attribute-accessibility, extra methods, and metadata"
 homepage = "https://github.com/hardistones/lxdx"
@@ -30,9 +30,10 @@ exclude = ["tests"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
+jsonpath-ng = "1.7.*"
 
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 assertpy = "*"
 flake8 = "*"
 importlib-metadata = "*"
@@ -50,11 +51,17 @@ furo = "*"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "--capture=no --random-order --timeout=1 --cov=lxdx --cov-report=term-missing"
+addopts = [
+  "--capture=no",
+  "--random-order",
+  "--timeout=1",
+  "--cov=lxdx",
+  "--cov-report=term-missing"
+]
 console_output_style = "count"
 testpaths = ["tests"]
 
 
 [build-system]
-requires = ["poetry_core"]
+requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

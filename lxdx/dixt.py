@@ -29,14 +29,18 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
 import json
-import re
 
 from collections import defaultdict
 from collections.abc import KeysView, ItemsView, ValuesView, MutableMapping
 from copy import deepcopy
+from jsonpath_ng import parse
 from typing import Any, Dict, List, Mapping, Tuple, Union, Hashable
 
 __all__ = ['Dixt']
+
+
+class DixtException(Exception):
+    pass
 
 
 class Dixt(MutableMapping):
@@ -56,7 +60,10 @@ class Dixt(MutableMapping):
     def __new__(cls, data=None, /, **kwargs):
         # use deepcopy 'cause sometimes data can be an iterator,
         # so it won't be 'used up' before __init__()
-        spec = dict(deepcopy(data) or {}) | kwargs
+        try:
+            spec = dict(deepcopy(data) or {}) | kwargs
+        except Exception as exc:
+            raise DixtException(f"Cannot convert to dict type: {data}") from exc
         dx = super().__new__(cls)
 
         # holds all normalised keys including non-str keys
@@ -122,6 +129,8 @@ class Dixt(MutableMapping):
             return self.__data__.__eq__(other.__data__)
         if isinstance(other, Mapping):
             return self.__data__.__eq__(other)
+        if not isinstance(other, (list, tuple, type(None))):
+            return False
         try:
             return self.__data__.__eq__(_dictify_kvp(other))
         except ValueError:
@@ -441,7 +450,7 @@ class Dixt(MutableMapping):
 
     def set_by_path(self, path: str, value) -> None:
         _validate_path(path)
-        _path = path.replace('[', '.[').strip('$.').split('.')
+        _path = path.replace('[', '.[').replace('..', '.').strip('$.').split('.')
         _set_by_path(self, _path, value)
 
     def setdefault(self, key, default=None) -> Any:
@@ -546,12 +555,13 @@ def _normalise_key(key: Hashable) -> Hashable:
 
 
 def _dictify_kvp(sequence):
+    err_msg = f'Sequence {sequence} is not iterable key-value pairs'
+    if not isinstance(sequence, (list, tuple, Mapping, type(None))):
+        raise TypeError(err_msg)
     try:
         return dict(sequence or {})
     except (TypeError, ValueError) as e:
-        msg = f'Sequence {sequence} is not ' \
-              f'iterable key-value pairs'
-        raise ValueError(msg) from e
+        raise ValueError(err_msg) from e
 
 
 def _contents(container, *keys):
@@ -569,11 +579,14 @@ def _validate_path(path):
     if not isinstance(path, str):
         raise TypeError(f'Invalid path: {path}')
     if not path.startswith('$.'):
-        raise ValueError(f'Invalid path: {path}')
+        raise ValueError(f'JSON path must start with "$.": {path}')
     if path.strip().lstrip('$.') == '':
         raise ValueError(f'Invalid path: {path}')
-    if re.match(r'^\$(\.\w+(\[\d+])*)+$', path) is None:
-        raise ValueError(f'Invalid path: {path}')
+
+    try:
+        parse(path)
+    except Exception:
+        raise ValueError(f'Invalid JSON path: {path}')
 
 
 def _get_by_path(obj: Dixt, attrs: list):
@@ -614,6 +627,9 @@ def _set_by_path(obj: Dixt, attrs: list, value):
             _set_by_path(_obj, attrs, value)
 
     elif isinstance(obj, Dixt):
+        if attr.startswith('["') and attr.endswith('"]'):
+            # Support access like '$.headers.["Content-Type"]'
+            attr = attr[2:-2]
         if obj.getx(attr, default=...) is Ellipsis:
             raise KeyError(attr)
         if not attrs:

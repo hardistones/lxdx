@@ -31,10 +31,14 @@ venv/
 # docs build
 docs/build
 
+# Poetry
+poetry.toml
+
 # others
 .todo
 .scratch
 SCRATCH
+tests/scratch*
 
 # sublime projects and workspaces
 *.sublime-workspace

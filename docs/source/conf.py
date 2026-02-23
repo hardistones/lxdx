@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.abspath(os.path.join('..', 'lxdx')))
 
 project = 'lxdx'
 author = 'Hardistones'
-copyright = f'2021, {author}'
+copyright = f'2021-2026, {author}'
 
 v = parse(getversion(project))
 
