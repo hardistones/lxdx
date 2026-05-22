@@ -28,21 +28,15 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
-import unittest
-
 from copy import deepcopy
 from lxdx import Dixt
 
 
-class TestMisc(unittest.TestCase):
+class TestMiscellaneous:
 
     def test__dixt_object__must_deep_copyable(self):
         a = Dixt(a=1, b={'c': {'d': 4}})
         copied = deepcopy(a)
-        self.assertNotEqual(id(a), id(copied))
+        assert id(a) != id(copied)
         a.b.c.d = 2
-        self.assertNotEqual(a.b.c.d, copied.b.c.d)
-
-
-if __name__ == '__main__':
-    unittest.main()
+        assert a.b.c.d != copied.b.c.d

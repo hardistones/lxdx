@@ -29,9 +29,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
 import json
-import unittest
+import pytest
 
-from assertpy import assert_that
 from collections import OrderedDict
 from collections.abc import KeysView, ValuesView, ItemsView
 
@@ -79,95 +78,71 @@ VALID_QUERIES = [
 ]
 
 
-class TestDixt(unittest.TestCase):
-    def setUp(self):
-        self.dixt = Dixt({
-            'headers': {
-                'Accept-Encoding': 'gzip',
-                'Content-Type': 'application/json'
-            },
-            'body': {
-                'C-D': 1.2,
-                'e': [2, {'g': 9.806}],
-                'f': {'x': None, 'y': [{'p': 5}, [8]]}
-            },
-            'extra': 'info'
-        })
-        self.dict_equiv = {
-            'headers': {
-                'Accept-Encoding': 'gzip',
-                'Content-Type': 'application/json'
-            },
-            'body': {
-                'C-D': 1.2,
-                'e': [2, {'g': 9.806}],
-                'f': {'x': None, 'y': [{'p': 5}, [8]]}
-            },
-            'extra': 'info'
-        }
-
-    def test__init__invalid_data(self):
+class TestInit:
+    def test_invalid_data(self):
         for data in [
             "string",
             ["non-key-value pair"],
             [('a', 'b'), 'c']
         ]:
-            with self.assertRaises(DixtException):
+            with pytest.raises(DixtException):
                 Dixt(data)
 
-    def test__init__accepts_key_value_pairs(self):
+    def test_accepts_key_value_pairs(self):
         dx = Dixt([(1, 100), ('2', '200')])
-        self.assertEqual(dx, {1: 100, '2': '200'})
+        assert dx == {1: 100, '2': '200'}
 
         dx = Dixt([(1, 100), ('2', '200')], a='a', b='b')
-        self.assertEqual(dx, {1: 100, '2': '200', 'a': 'a', 'b': 'b'})
+        assert dx == {1: 100, '2': '200', 'a': 'a', 'b': 'b'}
 
         # limitation:
         # due to the __new__ function using the zip iterator,
         # data must be wrapped first
         dx = Dixt(list(zip([1, '2'], [100, '200'])))
-        self.assertEqual(dx, {1: 100, '2': '200'})
+        assert dx == {1: 100, '2': '200'}
 
         dx = Dixt(tuple(zip([1, '2'], [100, '200'])))
-        self.assertEqual(dx, {1: 100, '2': '200'})
+        assert dx == {1: 100, '2': '200'}
 
         dx = Dixt(dict(zip([1, '2'], [100, '200'])))
-        self.assertEqual(dx, {1: 100, '2': '200'})
+        assert dx == {1: 100, '2': '200'}
 
-    def test__init__accepts_another_dixt_object(self):
+    def test_accepts_another_dixt_object(self):
         dx = Dixt({1: 1})
-        self.assertEqual(Dixt(dx), {1: 1})
+        assert Dixt(dx) == {1: 1}
 
-    def test__init__accepts_iterators(self):
+    def test_accepts_iterators(self):
         dx = Dixt(zip(['a', 'b'], [1, 2]))
-        self.assertEqual(dx, {'a': 1, 'b': 2})
+        assert dx == {'a': 1, 'b': 2}
 
-    def test__init__should_not_change_data_type(self):
+    def test_should_not_change_data_type(self):
         dx = Dixt(a=(1, 2, 3))
-        self.assertEqual(dx, {'a': (1, 2, 3)})
+        assert dx == {'a': (1, 2, 3)}
 
         dx = Dixt(a={1, 2, 3})
-        self.assertEqual(dx, {'a': {1, 2, 3}})
+        assert dx == {'a': {1, 2, 3}}
 
-    def test__init__accepts_kwargs(self):
+    def test_accepts_kwargs(self):
         dx = Dixt(alpha='α', beta='β', gamma='γ')
-        self.assertEqual(dx, {'alpha': 'α', 'beta': 'β', 'gamma': 'γ'})
-        self.assertEqual(dx.alpha, 'α')
+        assert dx == {'alpha': 'α', 'beta': 'β', 'gamma': 'γ'}
+        assert dx.alpha == 'α'
 
         dx = Dixt(a_b='a b', cd=1.2, e=[2, 4], f={'x': 3, 'y': [{'p': 5}, {'q': 7}]})
-        self.assertEqual(dx, {'a_b': 'a b', 'cd': 1.2, 'e': [2, 4], 'f': {'x': 3, 'y': [{'p': 5}, {'q': 7}]}})
+        assert dx == {'a_b': 'a b', 'cd': 1.2, 'e': [2, 4], 'f': {'x': 3, 'y': [{'p': 5}, {'q': 7}]}}
 
-    def test__init__kwargs_updates_data(self):
+    def test_kwargs_updates_data(self):
         dx = Dixt({'alpha': 'α', 'beta': 'β'})
-        self.assertEqual(dx, {'alpha': 'α', 'beta': 'β'})
+        assert dx == {'alpha': 'α', 'beta': 'β'}
 
         dx = Dixt({'alpha': 'α', 'beta': 'β'}, gamma='γ', beta='veeta')
-        self.assertEqual(dx, {'alpha': 'α', 'beta': 'veeta', 'gamma': 'γ'})
+        assert dx == {'alpha': 'α', 'beta': 'veeta', 'gamma': 'γ'}
 
         dx = Dixt(alpha='α', beta='β')
-        self.assertEqual(Dixt(dx, beta='beta'), {'alpha': 'α', 'beta': 'beta'})
+        assert Dixt(dx, beta='beta') == {'alpha': 'α', 'beta': 'beta'}
 
-    def test__equality__dixt_compared_to_dixt(self):
+
+class TestEquality:
+    def test_dixt_compared_to_dixt(self):
         a = Dixt(x=1, y=2, z=3)
         b = Dixt(x=1, y=2, z=3)
 
@@ -181,71 +156,89 @@ class TestDixt(unittest.TestCase):
             'Bn-Bttr': {'c': {'Z': 'z', 'Y': 'y'}, 'X': 'x'}
         })
 
-        self.assertEqual(a, b)
-        self.assertEqual(c, d)
-        self.assertNotEqual(b, c)
+        assert a == b
+        assert c == d
+        assert b != c
 
-    def test__equality__dixt_compared_to_dict(self):
+    def test_dixt_compared_to_dict(self):
         dx = Dixt(x=1, y=2, z=3)
-        self.assertEqual(dx, {'x': 1, 'y': 2, 'z': 3})
+        assert dx == {'x': 1, 'y': 2, 'z': 3}
 
-    def test__equality__dixt_compared_to_ordered_dict(self):
+    def test_dixt_compared_to_ordered_dict(self):
         dx = Dixt(x=1, y=2)
-        self.assertEqual(dx, OrderedDict((('y', 2), ('x', 1))))
+        assert dx == OrderedDict((('y', 2), ('x', 1)))
 
-    def test__equality__dixt_compared_to_iterable_key_value_pairs(self):
+    def test_dixt_compared_to_iterable_key_value_pairs(self):
         dx = Dixt(x=1, y=2)
-        self.assertEqual(dx, [('x', 1), ('y', 2)])
-        self.assertEqual(dx, (('y', 2), ('x', 1)))
+        assert dx == [('x', 1), ('y', 2)]
+        assert dx == (('y', 2), ('x', 1))
 
-    def test__equality__compare_to_other_types(self):
-        self.assertNotEqual(self.dixt, 'string')
-        self.assertNotEqual(self.dixt, 1234)
-        self.assertNotEqual(self.dixt, {'set'})
-        self.assertNotEqual(self.dixt, ['not', 'key-value', 'pair'])
+    def test_compare_to_other_types(self, dixt):
+        assert dixt != 'string'
+        assert dixt != 1234
+        assert dixt != {'set'}
+        assert dixt != ['not', 'key-value', 'pair']
 
-    def test__not_operator__return_false_when_empty_and_true_otherwise(self):
-        self.assertFalse(Dixt())
-        self.assertFalse(not self.dixt)
-        self.assertTrue(self.dixt)
-        self.assertTrue(not Dixt())
+    def test_not_operator_return_false_when_empty_and_true_otherwise(self, dixt):
+        assert not Dixt()
+        assert not (not dixt)
+        assert dixt
+        assert not Dixt()
 
-    def test__or_operator__should_choose_the_second_option_when_first_is_empty(self):
-        self.assertEqual(Dixt() or 'else', 'else')
-        self.assertEqual(Dixt() or {1: 1}, {1: 1})
-        self.assertEqual(Dixt() or self.dixt, self.dixt)
+    def test_or_operator_should_choose_the_second_option_when_first_is_empty(self, dixt):
+        assert (Dixt() or 'else') == 'else'
+        assert (Dixt() or {1: 1}) == {1: 1}
+        assert (Dixt() or dixt) == dixt
 
-    def test__union_operator__arg_is_dict(self):
-        assert_that(Dixt() | {}).is_instance_of(Dixt).is_equal_to({})
-        assert_that(Dixt() | {1: {2: 2}}).is_instance_of(Dixt).is_equal_to({1: {2: 2}})
-        self.assertEqual(Dixt({1: 1}) | {2: 2}, {2: 2, 1: 1})
 
-    def test__union_operator__arg_is_dixt(self):
-        assert_that(Dixt({1: 1}) | Dixt()).is_instance_of(Dixt).is_equal_to({1: 1})
-        assert_that(Dixt() | Dixt()).is_instance_of(Dixt).is_equal_to({})
-        self.assertEqual(Dixt() | Dixt({2: 2}), {2: 2})
-        self.assertEqual(Dixt({1: 1}) | Dixt({1: 100, 2: 2}), {1: 100, 2: 2})
+class TestUnionOperator:
+    def test_arg_is_dict(self):
+        result = Dixt() | {}
+        assert isinstance(result, Dixt)
+        assert result == {}
+        result = Dixt() | {1: {2: 2}}
+        assert isinstance(result, Dixt)
+        assert result == {1: {2: 2}}
+        assert Dixt({1: 1}) | {2: 2} == {2: 2, 1: 1}
 
-        assert_that({1: 1} | Dixt()).is_instance_of(dict).is_equal_to({1: 1})
-        assert_that({} | Dixt()).is_instance_of(dict).is_equal_to({})
-        self.assertEqual({} | Dixt({2: 2}), {2: 2})
-        self.assertEqual({1: 1} | Dixt({2: 2}), {1: 1, 2: 2})
+    def test_arg_is_dixt(self):
+        result = Dixt({1: 1}) | Dixt()
+        assert isinstance(result, Dixt)
+        assert result == {1: 1}
+        result = Dixt() | Dixt()
+        assert isinstance(result, Dixt)
+        assert result == {}
+        assert Dixt() | Dixt({2: 2}) == {2: 2}
+        assert Dixt({1: 1}) | Dixt({1: 100, 2: 2}) == {1: 100, 2: 2}
 
-    def test__union_operator__first_arg_is_iterable_key_value_pairs(self):
+        result = {1: 1} | Dixt()
+        assert isinstance(result, dict)
+        assert result == {1: 1}
+        result = {} | Dixt()
+        assert isinstance(result, dict)
+        assert result == {}
+        assert {} | Dixt({2: 2}) == {2: 2}
+        assert {1: 1} | Dixt({2: 2}) == {1: 1, 2: 2}
+
+    def test_first_arg_is_iterable_key_value_pairs(self):
         """This will trigger __ror__"""
-        assert_that([(1, 1), (2, 2)] | Dixt()).is_instance_of(dict).is_equal_to({1: 1, 2: 2})
-        assert_that([(1, 1), (2, 2)] | Dixt({2: 4})).is_instance_of(dict).is_equal_to({1: 1, 2: 4})
+        result = [(1, 1), (2, 2)] | Dixt()
+        assert isinstance(result, dict)
+        assert result == {1: 1, 2: 2}
+        result = [(1, 1), (2, 2)] | Dixt({2: 4})
+        assert isinstance(result, dict)
+        assert result == {1: 1, 2: 4}
 
-    def test__union_operator__in_place_operation(self):
+    def test_in_place_operation(self):
         dx = Dixt()
         dx |= {}
-        self.assertEqual(dx, {})
+        assert dx == {}
         dx |= {1: 1}
-        self.assertEqual(dx, {1: 1})
+        assert dx == {1: 1}
         dx |= [(1, 100), (2, 2)]
-        self.assertEqual(dx, {1: 100, 2: 2})
+        assert dx == {1: 100, 2: 2}
 
-    def test__union_operator__raises_error_for_non_supported_types_or_values(self):
+    def test_raises_error_for_non_supported_types_or_values(self):
         arguments = [
             'string',
             1234,
@@ -254,401 +247,518 @@ class TestDixt(unittest.TestCase):
         ]
         dx = Dixt()
         for arg in arguments:
-            with self.assertRaises(Exception):
+            with pytest.raises(Exception):
                 dx | arg   # __or__
-            with self.assertRaises(Exception):
+            with pytest.raises(Exception):
                 arg | dx   # __ror__
-            with self.assertRaises(Exception):
+            with pytest.raises(Exception):
                 dx |= arg  # __ior__
 
-    def test__len(self):
-        self.assertEqual(len(self.dixt), 3)
-        self.assertEqual(len(self.dixt.headers), 2)
-        self.assertEqual(len(self.dixt.body), 3)
-        self.assertEqual(len(self.dixt.body.f.y), 2)
 
-    def test__str__repr(self):
-        dx = Dixt(a=1, b=Dixt(c=3))
-        self.assertEqual(str(dx), "{'a': 1, 'b': {'c': 3}}")
-        self.assertEqual(repr(dx), "{'a': 1, 'b': {'c': 3}}")
+class TestAttributeAccess:
+    def test_getattr_builtin(self, dixt):
+        assert getattr(dixt, 'nonexistent', None) is None
 
-        dx = {'alpha': Dixt(a='a'), 'omega': Dixt(o='o')}
-        self.assertEqual(str(dx), "{'alpha': {'a': 'a'}, 'omega': {'o': 'o'}}")
-
-    def test__getattr__builtin(self):
-        self.assertIsNone(getattr(self.dixt, 'nonexistent', None))
-
-    def test__getattr__dot_notation(self):
+    def test_getattr_dot_notation(self, dixt):
         expected = {'C-D': 1.2,
                     'e': [2, {'g': 9.806}],
                     'f': {'x': None, 'y': [{'p': 5}, [8]]}}
 
-        self.assertEqual(self.dixt.body, expected)
-        self.assertEqual(self.dixt.body.f.x, None)
-        self.assertEqual(self.dixt.body.c_d, 1.2)
+        assert dixt.body == expected
+        assert dixt.body.f.x is None
+        assert dixt.body.c_d == 1.2
 
-    def test__getattr__dot_notation__using_normalised_keys(self):
+    def test_getattr_dot_notation_using_normalised_keys(self):
         dx = Dixt(**{'Alpha-Bravo': 'ab',
                      'CharlieDelta': 'cd',
                      'echo foxtrot': 'ef'})
-        self.assertEqual(dx.alpha_bravo, 'ab')
-        self.assertEqual(dx.charliedelta, 'cd')
-        self.assertEqual(dx.echo_foxtrot, 'ef')
+        assert dx.alpha_bravo == 'ab'
+        assert dx.charliedelta == 'cd'
+        assert dx.echo_foxtrot == 'ef'
 
-    def test__getattr__dot_notation__raises_error_when_nonexistent(self):
-        self.assertRaises(AttributeError, lambda: self.dixt.nonexistent)
+    def test_getattr_dot_notation_raises_error_when_nonexistent(self, dixt):
+        with pytest.raises(AttributeError):
+            dixt.nonexistent
 
-    def test__getx__returns_value_of_existing_attributes(self):
-        headers = {'Accept-Encoding': 'gzip',
-                   'Content-Type': 'application/json'}
-        self.assertEqual(self.dixt.getx('headers'), headers)
-        self.assertEqual(self.dixt.headers.getx('Accept-Encoding'), 'gzip')
-        self.assertEqual(self.dixt.body.f.getx('x', 'y'), (None, [{'p': 5}, [8]]))
+    def test_setattr_builtin_function(self, dixt):
+        setattr(dixt, 'name', 'value')
+        assert dixt.name == 'value'
+        assert dixt['name'] == 'value'
 
-    def test__getx__returns_default_value_of_nonexistent_attributes(self):
-        self.assertEqual(self.dixt.getx('ghost', default=-1), -1)
-        self.assertEqual(self.dixt.headers.getx('Lost-Item', default=object), object)
+    def test_setattr_builtin_function_should_normalise_attribute_name(self, dixt):
+        setattr(dixt, 'My Name', 'value')
+        assert dixt.my_name == 'value'
+        assert dixt['My Name'] == 'value'
 
-        self.assertEqual(self.dixt.getx('ghost', default=[1]), 1)
-        self.assertEqual(self.dixt.body.f.getx('x', default='X'), None)
-        self.assertEqual(self.dixt.getx('ghost', 'invisible', default=2), (2, 2))
-        self.assertEqual(self.dixt.getx('ghost', 'invisible', default=[4, 5]), (4, 5))
+    def test_setattr_dot_notation_existing_attributes(self, dixt):
+        dixt.extra = value = 'new value'
+        assert dixt.extra == value
+        assert dixt['extra'] == value
 
-    def test__getx__raises_error_when_defaults_dont_match_with_attrs_len(self):
-        with self.assertRaises(ValueError):
-            self.dixt.getx('ghost', 'invisible', default=(1, 2, 3))
+        dixt.body.c_d = value = 'string'
+        assert dixt.body.c_d == value
+        assert dixt.body['C-D'] == value
 
-        with self.assertRaises(ValueError):
-            self.dixt.getx('ghost', 'invisible', default=[3])
+    def test_setattr_dot_notation_nonexistent_attributes(self, dixt):
+        dixt.name = value = 123456
+        assert 'name' in dixt
+        assert dixt.name == value
+        assert dixt['name'] == value
 
-    def test__setattr__builtin_function(self):
-        setattr(self.dixt, 'name', 'value')
-        self.assertEqual(self.dixt.name, 'value')
-        self.assertEqual(self.dixt['name'], 'value')
+    def test_setattr_dot_notation_takes_the_attribute_verbatim(self, dixt):
+        dixt.something_new = 123456
+        assert 'something_new' in dixt
+        assert 'something-new' not in dixt
+        assert 'something new' not in dixt
+        assert 'Something-New' not in dixt
 
-    def test__setattr__builtin_function__should_normalise_attribute_name(self):
-        setattr(self.dixt, 'My Name', 'value')
-        self.assertEqual(self.dixt.my_name, 'value')
-        self.assertEqual(self.dixt['My Name'], 'value')
+    def test_setattr_dot_notation_another_dict_or_dixt(self, dixt):
+        dixt.extra = {'alpha': 1}
+        assert isinstance(dixt.extra, Dixt)
+        assert dixt.extra == Dixt(alpha=1)
+        assert dixt.extra.alpha == 1
 
-    def test__setattr__dot_notation__existing_attributes(self):
-        self.dixt.extra = value = 'new value'
-        self.assertEqual(self.dixt.extra, value)
-        self.assertEqual(self.dixt['extra'], value)
+        dixt.extra = Dixt(alpha=1)
+        assert dixt.extra == {'alpha': 1}
+        assert dixt.extra.alpha == 1
 
-        self.dixt.body.c_d = value = 'string'
-        self.assertEqual(self.dixt.body.c_d, value)
-        self.assertEqual(self.dixt.body['C-D'], value)
-
-    def test__setattr__dot_notation__nonexistent_attributes(self):
-        self.dixt.name = value = 123456
-        self.assertTrue('name' in self.dixt)
-        self.assertEqual(self.dixt.name, value)
-        self.assertEqual(self.dixt['name'], value)
-
-    def test__setattr__dot_notation__takes_the_attribute_verbatim(self):
-        self.dixt.something_new = 123456
-        self.assertTrue('something_new' in self.dixt)
-        self.assertTrue('something-new' not in self.dixt)
-        self.assertTrue('something new' not in self.dixt)
-        self.assertTrue('Something-New' not in self.dixt)
-
-    def test__setattr__dot_notation__another_dict_or_dixt(self):
-        self.dixt.extra = {'alpha': 1}
-        self.assertIsInstance(self.dixt.extra, Dixt)
-        self.assertEqual(self.dixt.extra, Dixt(alpha=1))
-        self.assertEqual(self.dixt.extra.alpha, 1)
-
-        self.dixt.extra = Dixt(alpha=1)
-        self.assertEqual(self.dixt.extra, {'alpha': 1})
-        self.assertEqual(self.dixt.extra.alpha, 1)
-
-    def test__getitem__gets_value_of_existing_items(self):
-        self.assertEqual(self.dixt['headers']['Accept-Encoding'], 'gzip')
-        self.assertEqual(self.dixt['body']['f']['x'], None)
-        self.assertEqual(self.dixt['extra'], 'info')
-
-    def test__getitem__key_that_is_implicit_false(self):
-        self.assertEqual(Dixt({0: 1})[0], 1)
-        self.assertEqual(Dixt({False: 1})[False], 1)
-        self.assertEqual(Dixt({(): 1})[()], 1)
-
-    def test__getitem__raises_key_error_when_missing(self):
-        self.assertRaises(KeyError, lambda: self.dixt['missing_attribute'])
-        self.assertRaises(KeyError, lambda: self.dixt[False])
-        self.assertRaises(KeyError, lambda: self.dixt[0])
-        self.assertRaises(KeyError, lambda: self.dixt[()])
-
-    def test__setitem__existing_attributes(self):
-        dx = Dixt(a=1, b=2, c=3)
-        dx['a'] *= 100
-        dx['b'] = dx['a'] + dx['c']
-        self.assertEqual(dx, {'a': 100, 'b': 103, 'c': 3})
-
-        dx = Dixt({1: 1, 2: 2, 3: 3})
-        dx[1] *= 100
-        dx[2] = dx[1] + dx[3]
-        self.assertEqual(dx, {1: 100, 2: 103, 3: 3})
-
-    def test__setitem__raises_error_when_adding_similarly_formatted_keys(self):
-        with self.assertRaises(KeyError):
-            self.dixt.headers['content_type'] = 'new-type'
-
-        # must not raise error
-        self.dixt.headers.content_type = 'type-one'
-        self.dixt.headers['Content-Type'] = 'type-two'
-
-    def test__setitem__nonexistent_attributes(self):
-        dx = Dixt()
-        dx['a'] = 1
-        dx['b'] = (2, 3)
-        dx[123] = "cc"
-        self.assertEqual(dx, {'a': 1, 'b': (2, 3), 123: 'cc'})
-
-    def test__setattr__setitem__hype_when_value_is_dict_or_dixt(self):
+    def test_setattr_setitem_hype_when_value_is_dict_or_dixt(self):
         dxa = Dixt(a=1, b={'bb': 2})
         dxa.c = {'c-c': 3}
         dxb = Dixt(a=1, b=Dixt(bb=2))
         dxb['c'] = {'c-c': 3}
-        self.assertEqual(dxa, dxb)
-        self.assertEqual(dxa.c.c_c, 3)
-        self.assertEqual(dxb.c.c_c, 3)
+        assert dxa == dxb
+        assert dxa.c.c_c == 3
+        assert dxb.c.c_c == 3
 
-    def test__pop(self):
-        self.assertEqual(self.dixt.pop('extra'), 'info')
-        self.assertNotIn('extra', self.dixt)
-        self.assertNotIn('extra', self.dixt.__keymap__)
-        with self.assertRaises(AttributeError):
-            self.dixt.pop('extra')
-        self.assertEqual(self.dixt.pop('extra', 'default-value'), 'default-value')
+    def test_delattr(self, dixt):
+        del dixt.headers.content_type
+        assert 'Content-Type' not in dixt.headers
+        assert 'content_type' not in dixt.headers
+        del dixt.headers
+        del dixt.body
+        assert dixt == {'extra': 'info'}
 
-    def test__clear(self):
-        self.dixt.headers.clear()
-        self.assertEqual(self.dixt.headers, {})
-        self.assertEqual(self.dixt.headers, Dixt())
-        self.assertEqual(self.dixt.headers.__keymap__, {})
-        self.dixt.body.clear()
-        self.assertEqual(self.dixt, {'headers': {}, 'body': {}, 'extra': 'info'})
-        self.assertEqual(self.dixt, Dixt(headers=Dixt(),
-                                         body=Dixt(),
-                                         extra='info'))
-        self.assertEqual(self.dixt.body.__keymap__, {})
+    def test_delattr_should_be_case_insensitive(self, dixt):
+        del dixt.EXTRA
+        assert 'extra' not in dixt
 
-    def test__update__value_is_forced_to_be_none(self):
+    def test_delattr_raises_error_attribute_is_not_found(self, dixt):
+        with pytest.raises(KeyError):
+            del dixt.not_found
+
+
+class TestGetx:
+    def test_returns_value_of_existing_attributes(self, dixt):
+        headers = {'Accept-Encoding': 'gzip',
+                   'Content-Type': 'application/json'}
+        assert dixt.getx('headers') == headers
+        assert dixt.headers.getx('Accept-Encoding') == 'gzip'
+        assert dixt.body.f.getx('x', 'y') == (None, [{'p': 5}, [8]])
+
+    def test_returns_default_value_of_nonexistent_attributes(self, dixt):
+        assert dixt.getx('ghost', default=-1) == -1
+        assert dixt.headers.getx('Lost-Item', default=object) == object
+
+        assert dixt.getx('ghost', default=[1]) == 1
+        assert dixt.body.f.getx('x', default='X') is None
+        assert dixt.getx('ghost', 'invisible', default=2) == (2, 2)
+        assert dixt.getx('ghost', 'invisible', default=[4, 5]) == (4, 5)
+
+    def test_raises_error_when_defaults_dont_match_with_attrs_len(self, dixt):
+        with pytest.raises(ValueError):
+            dixt.getx('ghost', 'invisible', default=(1, 2, 3))
+
+        with pytest.raises(ValueError):
+            dixt.getx('ghost', 'invisible', default=[3])
+
+
+class TestItemAccess:
+    def test_getitem_gets_value_of_existing_items(self, dixt):
+        assert dixt['headers']['Accept-Encoding'] == 'gzip'
+        assert dixt['body']['f']['x'] is None
+        assert dixt['extra'] == 'info'
+
+    def test_getitem_key_that_is_implicit_false(self):
+        assert Dixt({0: 1})[0] == 1
+        assert Dixt({False: 1})[False] == 1
+        assert Dixt({(): 1})[()] == 1
+
+    def test_getitem_raises_key_error_when_missing(self, dixt):
+        with pytest.raises(KeyError):
+            dixt['missing_attribute']
+        with pytest.raises(KeyError):
+            dixt[False]
+        with pytest.raises(KeyError):
+            dixt[0]
+        with pytest.raises(KeyError):
+            dixt[()]
+
+    def test_setitem_existing_attributes(self):
+        dx = Dixt(a=1, b=2, c=3)
+        dx['a'] *= 100
+        dx['b'] = dx['a'] + dx['c']
+        assert dx == {'a': 100, 'b': 103, 'c': 3}
+
+        dx = Dixt({1: 1, 2: 2, 3: 3})
+        dx[1] *= 100
+        dx[2] = dx[1] + dx[3]
+        assert dx == {1: 100, 2: 103, 3: 3}
+
+    def test_setitem_raises_error_when_adding_similarly_formatted_keys(self, dixt):
+        with pytest.raises(KeyError):
+            dixt.headers['content_type'] = 'new-type'
+
+        # must not raise error
+        dixt.headers.content_type = 'type-one'
+        dixt.headers['Content-Type'] = 'type-two'
+
+    def test_setitem_nonexistent_attributes(self):
+        dx = Dixt()
+        dx['a'] = 1
+        dx['b'] = (2, 3)
+        dx[123] = "cc"
+        assert dx == {'a': 1, 'b': (2, 3), 123: 'cc'}
+
+    def test_delitem(self, dixt):
+        del dixt['headers']
+        assert 'headers' not in dixt
+
+        assert 'C-D' in dixt.body
+        assert 'c_d' in dixt.body.__keymap__
+        del dixt.body['C-D']
+        assert 'C-D' not in dixt.body
+        assert 'c_d' not in dixt.body.__keymap__
+
+        del dixt['body']
+        assert dixt == Dixt(extra='info')
+
+    def test_delitem_should_be_case_insensitive(self, dixt):
+        dixt['A'] = 'A'
+        del dixt['a']
+        assert 'A' not in dixt
+
+        del dixt['Extra']
+        assert 'extra' not in dixt
+
+    def test_delitem_raises_error_item_is_not_found(self, dixt):
+        with pytest.raises(KeyError):
+            del dixt['not-found']
+
+
+class TestUpdate:
+    def test_value_is_forced_to_be_none(self):
         dx = Dixt(a=1, b=2)
         dx.update(None)
-        self.assertEqual(dx, Dixt(a=1, b=2))
+        assert dx == Dixt(a=1, b=2)
 
-    def test__update__value_is_dict(self):
+    def test_value_is_dict(self):
         dx = Dixt(a=1, b=2)
         dx.update({'c': 3})
-        self.assertEqual(dx, Dixt(a=1, b=2, c=3))
+        assert dx == Dixt(a=1, b=2, c=3)
 
-    def test__update__value_is_dixt(self):
+    def test_value_is_dixt(self):
         dx = Dixt(a=1, b=2)
         dx.update(Dixt(d=4))
-        self.assertEqual(dx, Dixt(a=1, b=2, d=4))
+        assert dx == Dixt(a=1, b=2, d=4)
 
-    def test__update__value_is_in_kwargs_only(self):
+    def test_value_is_in_kwargs_only(self):
         dx = Dixt(a=1, b=2)
         dx.update(x=3, y=4)
-        self.assertEqual(dx, Dixt(a=1, b=2, x=3, y=4))
+        assert dx == Dixt(a=1, b=2, x=3, y=4)
 
-    def test__update__value_is_iterable_key_value_pairs(self):
+    def test_value_is_iterable_key_value_pairs(self):
         dx = Dixt(a=1, b=2)
         dx.update((('x', 24), ('y', 25)))
-        self.assertEqual(dx, Dixt(a=1, b=2, x=24, y=25))
+        assert dx == Dixt(a=1, b=2, x=24, y=25)
 
-    def test__update__combination_of_dict_and_kwargs(self):
+    def test_combination_of_dict_and_kwargs(self):
         dx = Dixt(a=1, b=2)
         dx.update({'c': 3}, d={'dd': 44})
-        self.assertEqual(dx, Dixt(a=1, b=2, c=3, d=Dixt(dd=44)))
+        assert dx == Dixt(a=1, b=2, c=3, d=Dixt(dd=44))
 
-    def test__update__combination_of_dixt_and_kwargs(self):
+    def test_combination_of_dixt_and_kwargs(self):
         dx = Dixt(a=1, b=2)
         dx.update(Dixt(e=5, f=Dixt(g=7)))
-        self.assertEqual(dx, Dixt(a=1, b=2, e=5, f=Dixt(g=7)))
+        assert dx == Dixt(a=1, b=2, e=5, f=Dixt(g=7))
 
-    def test__update__combination_of_key_value_pairs_and_kwargs(self):
+    def test_combination_of_key_value_pairs_and_kwargs(self):
         dx = Dixt(a=1, b=2)
         dx.update((('e', 5),), x=[1, 2])
-        self.assertEqual(dx, {'a': 1, 'b': 2, 'e': 5, 'x': [1, 2]})
+        assert dx == {'a': 1, 'b': 2, 'e': 5, 'x': [1, 2]}
 
-    def test__update__raises_error__argument_is_not_iterable_key_value_pairs(self):
+    def test_raises_error_argument_is_not_iterable_key_value_pairs(self):
         for arg in ['string', ['list', 1], 1234]:
-            with self.assertRaises((ValueError, TypeError)):
+            with pytest.raises((ValueError, TypeError)):
                 Dixt(a=1, b=2).update(arg, x=[1, 2])
 
-    def test__contains(self):
-        self.assertTrue('extra' in self.dixt)
-        self.assertTrue(self.dixt.contains(*['headers', 'body', 'extra']))
-        self.assertTrue(self.dixt.contains('headers', 'body', 'extra'))
-        self.assertFalse('ghost' in self.dixt)
-        self.assertFalse(self.dixt.contains('headers', 'body', 'ghost'))
 
-    def test__contains__must_be_case_sensitive(self):
+class TestContains:
+    def test_contains(self, dixt):
+        assert 'extra' in dixt
+        assert dixt.contains(*['headers', 'body', 'extra'])
+        assert dixt.contains('headers', 'body', 'extra')
+        assert 'ghost' not in dixt
+        assert not dixt.contains('headers', 'body', 'ghost')
+
+    def test_must_be_case_sensitive(self):
         dx = Dixt({1: 100, 2: 200, 'A-a': 'aa'})
-        self.assertTrue(1 in dx)
-        self.assertTrue('A-a' in dx)
-        self.assertTrue('a-a' not in dx)
-        self.assertTrue(dx.contains(2, 1))
-        self.assertFalse(dx.contains('A-a', 'a-a'))
+        assert 1 in dx
+        assert 'A-a' in dx
+        assert 'a-a' not in dx
+        assert dx.contains(2, 1)
+        assert not dx.contains('A-a', 'a-a')
 
-    def test__contains__assert_all_is_false(self):
-        result = self.dixt.contains('headers', 'body', assert_all=False)
-        self.assertIsInstance(result, tuple)
-        self.assertTrue(all(result))
+    def test_assert_all_is_false(self, dixt):
+        result = dixt.contains('headers', 'body', assert_all=False)
+        assert isinstance(result, tuple)
+        assert all(result)
 
-        result = self.dixt.contains('headers', 'ghost', assert_all=False)
-        self.assertIsInstance(result, tuple)
-        self.assertEqual(result, (True, False))
+        result = dixt.contains('headers', 'ghost', assert_all=False)
+        assert isinstance(result, tuple)
+        assert result == (True, False)
 
-        result = self.dixt.contains('nonexistent', assert_all=False)
-        self.assertEqual(result, (False,))
+        result = dixt.contains('nonexistent', assert_all=False)
+        assert result == (False,)
 
-    def test__iter(self):
-        self.assertIsInstance(iter(self.dixt), type(iter({}.keys())))
 
-    def test__delitem(self):
-        del self.dixt['headers']
-        self.assertNotIn('headers', self.dixt)
+class TestCollectionOps:
+    def test_len(self, dixt):
+        assert len(dixt) == 3
+        assert len(dixt.headers) == 2
+        assert len(dixt.body) == 3
+        assert len(dixt.body.f.y) == 2
 
-        self.assertIn('C-D', self.dixt.body)
-        self.assertIn('c_d', self.dixt.body.__keymap__)
-        del self.dixt.body['C-D']
-        self.assertNotIn('C-D', self.dixt.body)
-        self.assertNotIn('c_d', self.dixt.body.__keymap__)
+    def test_iter(self, dixt):
+        assert isinstance(iter(dixt), type(iter({}.keys())))
 
-        del self.dixt['body']
-        self.assertEqual(self.dixt, Dixt(extra='info'))
+    def test_keys(self, dixt):
+        keys = dixt.keys()
+        assert isinstance(keys, KeysView)
+        assert list(keys) == ["headers", "body", "extra"]
 
-    def test__delitem__should_be_case_insensitive(self):
-        self.dixt['A'] = 'A'
-        del self.dixt['a']
-        self.assertNotIn('A', self.dixt)
+    def test_values(self, dixt):
+        values = dixt.headers.values()
+        assert isinstance(values, ValuesView)
+        assert list(values) == ["gzip", "application/json"]
 
-        del self.dixt['Extra']
-        self.assertNotIn('extra', self.dixt)
+    def test_items(self, dixt):
+        items = dixt.headers.items()
+        assert isinstance(items, ItemsView)
+        assert list(items) == [('Accept-Encoding', 'gzip'), ('Content-Type', 'application/json')]
 
-    def test__delitem__raises_error__item_is_not_found(self):
-        with self.assertRaises(KeyError):
-            del self.dixt['not-found']
+    def test_pop(self, dixt):
+        assert dixt.pop('extra') == 'info'
+        assert 'extra' not in dixt
+        assert 'extra' not in dixt.__keymap__
+        with pytest.raises(AttributeError):
+            dixt.pop('extra')
+        assert dixt.pop('extra', 'default-value') == 'default-value'
 
-    def test__delattr(self):
-        del self.dixt.headers.content_type
-        self.assertNotIn('Content-Type', self.dixt.headers)
-        self.assertNotIn('content_type', self.dixt.headers)
-        del self.dixt.headers
-        del self.dixt.body
-        self.assertEqual(self.dixt, {'extra': 'info'})
+    def test_clear(self, dixt):
+        dixt.headers.clear()
+        assert dixt.headers == {}
+        assert dixt.headers == Dixt()
+        assert dixt.headers.__keymap__ == {}
+        dixt.body.clear()
+        assert dixt == {'headers': {}, 'body': {}, 'extra': 'info'}
+        assert dixt == Dixt(headers=Dixt(), body=Dixt(), extra='info')
+        assert dixt.body.__keymap__ == {}
 
-    def test__delattr__should_be_case_insensitive(self):
-        del self.dixt.EXTRA
-        self.assertNotIn('extra', self.dixt)
+    def test_popitem(self):
+        """Testing inherited function from MutableMapping."""
+        dx = Dixt(a=1, b=2, c=3)
+        # not LIFO as with dict
+        assert dx.popitem() == ('a', 1)
 
-    def test__delattr__raises_error__attribute_is_not_found(self):
-        with self.assertRaises(KeyError):
-            del self.dixt.not_found
+    def test_setdefault_sets_value_to_nonexistent_key_from_default_value(self, dixt):
+        """Testing inherited function from MutableMapping."""
+        assert 'extra-extra' not in dixt
+        dixt.setdefault('extra-extra', 'extra-value')
+        assert dixt.extra_extra == 'extra-value'
 
-    def test__keys(self):
-        keys = self.dixt.keys()
-        self.assertIsInstance(keys, KeysView)
-        self.assertEqual(list(keys), ["headers", "body", "extra"])
+        assert 'to-exist' not in dixt
+        dixt.setdefault('to-exist')
+        assert dixt.to_exist is None
 
-    def test__values(self):
-        values = self.dixt.headers.values()
-        self.assertIsInstance(values, ValuesView)
-        self.assertEqual(list(values), ["gzip", "application/json"])
+    def test_setdefault_does_not_overwrite_existing_value(self, dixt):
+        dixt.setdefault('extra', 'another-value')
+        assert dixt.extra == 'info'
 
-    def test__items(self):
-        items = self.dixt.headers.items()
-        self.assertIsInstance(items, ItemsView)
-        self.assertEqual(list(items), [('Accept-Encoding', 'gzip'), ('Content-Type', 'application/json')])
 
-    def test__dict__should_return_dict_object_with_non_normalised_keys(self):
-        self.assertEqual(self.dixt.dict(), self.dict_equiv)
-        self._assert_obj_tree_has_no_dixt_object(self.dixt.dict())
+class TestConversion:
+    def test_str_repr(self):
+        dx = Dixt(a=1, b=Dixt(c=3))
+        assert str(dx) == "{'a': 1, 'b': {'c': 3}}"
+        assert repr(dx) == "{'a': 1, 'b': {'c': 3}}"
 
-        self.dixt.extra = Dixt(a=1, b=[Dixt(c=3)])
-        self._assert_obj_tree_has_no_dixt_object(self.dixt.dict())
+        dx = {'alpha': Dixt(a='a'), 'omega': Dixt(o='o')}
+        assert str(dx) == "{'alpha': {'a': 'a'}, 'omega': {'o': 'o'}}"
 
-    def test__traversals_with_nested_objects(self):
-        self.assertEqual(self.dixt.body.e[1], {"g": 9.806})
-        self.assertEqual(self.dixt['body']['e'][1], {"g": 9.806})
+    def test_dict_should_return_dict_object_with_non_normalised_keys(self, dixt, dict_equiv):
+        assert dixt.dict() == dict_equiv
+        _assert_obj_tree_has_no_dixt_object(dixt.dict())
 
-        self.assertEqual(self.dixt.body.e[1].g, 9.806)
-        self.assertEqual(self.dixt['body']['e'][1]['g'], 9.806)
+        dixt.extra = Dixt(a=1, b=[Dixt(c=3)])
+        _assert_obj_tree_has_no_dixt_object(dixt.dict())
 
-        self.assertEqual(self.dixt.body.f.y[1], [8])
-        self.assertEqual(self.dixt['body']['f']['y'][1], [8])
+    def test_json_conversion_to_json_format(self, dixt, dict_equiv):
+        json_equivalent = json.dumps(dict_equiv)
+        assert dixt.json() == json_equivalent
 
-        self.assertEqual(self.dixt.body.f.y[1][0], 8)
-        self.assertEqual(self.dixt['body']['f']['y'][1][0], 8)
+    def test_from_json(self, dict_equiv):
+        json_string = json.dumps(dict_equiv)
+        dx = Dixt.from_json(json_string)
+        assert dx == dict_equiv
 
-    def test__operations_on_nested_objects(self):
-        self.dixt.body.f.y[1].extend(['σ', 'φ', 'θ'])
-        self.assertEqual(self.dixt.body.f.y[1], [8, 'σ', 'φ', 'θ'])
 
-        self.dixt.body.e[1] = {'del-ta': 'd'}
+class TestNestedAccess:
+    def test_traversals_with_nested_objects(self, dixt):
+        assert dixt.body.e[1] == {"g": 9.806}
+        assert dixt['body']['e'][1] == {"g": 9.806}
+
+        assert dixt.body.e[1].g == 9.806
+        assert dixt['body']['e'][1]['g'] == 9.806
+
+        assert dixt.body.f.y[1] == [8]
+        assert dixt['body']['f']['y'][1] == [8]
+
+        assert dixt.body.f.y[1][0] == 8
+        assert dixt['body']['f']['y'][1][0] == 8
+
+    def test_operations_on_nested_objects(self, dixt):
+        dixt.body.f.y[1].extend(['σ', 'φ', 'θ'])
+        assert dixt.body.f.y[1] == [8, 'σ', 'φ', 'θ']
+
+        dixt.body.e[1] = {'del-ta': 'd'}
         # AttributeError: Since the assignment is handled by the list object,
         #                 the dict is not converted to a Dixt object.
         #                 Should wrap with Dixt first
         #                 before appending/adding to the list.
-        # self.dixt.body.e[1].del_ta = 'δ'
+        # dixt.body.e[1].del_ta = 'δ'
 
-        self.dixt.body.e[1] = Dixt({'del-ta': 'δ'})
-        self.assertEqual(self.dixt.body.e[1], {'del-ta': 'δ'})
-        self.assertEqual(self.dixt.body.e[1].del_ta, 'δ')
+        dixt.body.e[1] = Dixt({'del-ta': 'δ'})
+        assert dixt.body.e[1] == {'del-ta': 'δ'}
+        assert dixt.body.e[1].del_ta == 'δ'
 
-    def test__get_from(self):
+    def test_get_from(self, dixt):
         for path, expected_value in VALID_QUERIES:
-            self.assertEqual(self.dixt.get_from(path), expected_value)
+            assert dixt.get_from(path) == expected_value
 
-    def test__get_from__invalid_path(self):
+    def test_get_from_invalid_path(self, dixt):
         for exc, queries in INVALID_QUERIES.items():
             for path in queries:
-                with self.assertRaises(exc):
-                    self.dixt.get_from(path)
+                with pytest.raises(exc):
+                    dixt.get_from(path)
 
-    def test__set_by_path(self):
-        self.dixt.set_by_path('$.headers.content_type', 'application/text')
-        self.assertEqual(self.dixt['headers']['Content-Type'], 'application/text')
+    def test_set_by_path(self, dixt):
+        dixt.set_by_path('$.headers.content_type', 'application/text')
+        assert dixt['headers']['Content-Type'] == 'application/text'
 
-        self.dixt.set_by_path('$.headers.["Content-Type"]', 'application/json')
-        self.assertEqual(self.dixt['headers']['Content-Type'], 'application/json')
+        dixt.set_by_path('$.headers.["Content-Type"]', 'application/json')
+        assert dixt['headers']['Content-Type'] == 'application/json'
 
-        self.dixt.set_by_path('$.body.e[0]', 22)
-        self.assertEqual(self.dixt['body']['e'][0], 22)
-        self.assertEqual(self.dixt.get_from('$.body.e[0]'), 22)
+        dixt.set_by_path('$.body.e[0]', 22)
+        assert dixt['body']['e'][0] == 22
+        assert dixt.get_from('$.body.e[0]') == 22
 
-        self.dixt.set_by_path('$.body.f.x', 'xi')
-        self.assertEqual(self.dixt['body']['f']['x'], 'xi')
-        self.assertEqual(self.dixt.get_from('$.body.f.x'), 'xi')
+        dixt.set_by_path('$.body.f.x', 'xi')
+        assert dixt['body']['f']['x'] == 'xi'
+        assert dixt.get_from('$.body.f.x') == 'xi'
 
-        self.dixt.set_by_path('$.body.f.y[0].p', 55)
-        self.assertEqual(self.dixt['body']['f']['y'][0]['p'], 55)
-        self.assertEqual(self.dixt.get_from('$.body.f.y[0].p'), 55)
+        dixt.set_by_path('$.body.f.y[0].p', 55)
+        assert dixt['body']['f']['y'][0]['p'] == 55
+        assert dixt.get_from('$.body.f.y[0].p') == 55
 
-        self.dixt.set_by_path('$.body.f.y[1][0]', 88)
-        self.assertEqual(self.dixt['body']['f']['y'][1][0], 88)
-        self.assertEqual(self.dixt.get_from('$.body.f.y[1][0]'), 88)
+        dixt.set_by_path('$.body.f.y[1][0]', 88)
+        assert dixt['body']['f']['y'][1][0] == 88
+        assert dixt.get_from('$.body.f.y[1][0]') == 88
 
-    def test__set_by_path__invalid_path(self):
+    def test_set_by_path_invalid_path(self, dixt):
         for exc, queries in INVALID_QUERIES.items():
             for path in queries:
-                with self.assertRaises(exc):
-                    self.dixt.set_by_path(path, object())
+                with pytest.raises(exc):
+                    dixt.set_by_path(path, object())
 
-    def test__json__conversion_to_json_format(self):
-        json_equivalent = json.dumps(self.dict_equiv)
-        self.assertEqual(self.dixt.json(), json_equivalent)
 
-    def test__from_json(self):
-        json_string = json.dumps(self.dict_equiv)
-        dx = Dixt.from_json(json_string)
-        self.assertEqual(dx, self.dict_equiv)
+class TestKeymeta:
+    def test_hidden_flag(self, dixt, dict_equiv):
+        dixt.keymeta('body', hidden=True)
 
-    def test__submap__supermap(self):
+        assert 'body' in dixt.whats_hidden()
+        assert 'body' not in dixt
+        assert dixt != dict_equiv
+
+        assert len(dixt) == 2
+        assert list(dixt.keys()) == ['headers', 'extra']
+
+        body = {'f': {'x': None}}
+        assert not dixt.is_supermap_of({'body': body})
+        dx = dixt.body | {'something': 'new'}
+        assert dx.something == 'new'
+        assert dx.is_supermap_of(body | {'something': 'new'})
+
+    def test_flag_a_non_str_key(self, dixt):
+        dixt[123] = '123'
+        dixt.keymeta(123, hidden=True)
+        assert 123 not in dixt
+
+    def test_hidden_flag_can_still_get_and_set_items(self, dixt):
+        dixt.headers.keymeta('Accept-Encoding', hidden=True)
+        dixt.headers.accept_encoding = 'zip'
+        assert dixt.headers.accept_encoding == 'zip'
+
+        dixt.keymeta('headers', hidden=True)
+        dixt.headers['Accept-Encoding'] = 'tar'
+        assert dixt.headers['Accept-Encoding'] == 'tar'
+
+    def test_able_to_flag_items_of_hidden_items(self, dixt):
+        dixt.keymeta('body', hidden=True)
+        dixt.body.keymeta('e', hidden=True)
+        assert 'body' in dixt.whats_hidden()
+        assert 'e' in dixt.body.whats_hidden()
+
+    def test_unsupported_flags_bypassed(self, dixt):
+        dixt.keymeta('body', whatever='value')
+        assert 'body' not in dixt.__keymeta__
+
+        dixt.keymeta('extra', hidden=True, whatever='value')
+        assert 'whatever' not in dixt.__keymeta__['extra']
+        assert 'hidden' in dixt.__keymeta__['extra']
+
+    def test_no_flags_returns_metadata_of_keys(self, dixt):
+        dixt.keymeta('extra', 'body', hidden=True)
+
+        expected = {'extra': {'hidden': True}}
+        assert dixt.keymeta('extra') == expected
+
+        expected['body'] = {'hidden': True}
+        assert dixt.keymeta('extra', 'body') == expected
+
+    def test_remove_from_keymeta_a_deleted_flagged_item(self, dixt):
+        dixt.keymeta('extra', hidden=True)
+        del dixt.extra
+        assert 'extra' not in dixt.__data__
+        assert 'extra' not in dixt.__keymeta__
+        assert 'extra' not in dixt.__hidden__
+
+    def test_cleanup_of_metadata_on_reset_value(self, dixt):
+        dixt.keymeta('body', hidden=True)
+        assert 'hidden' in dixt.__keymeta__['body']
+        dixt.keymeta('body', hidden=False)  # reset value
+        assert 'body' not in dixt.__keymeta__
+
+    def test_raises_error_when_keys_are_not_found(self, dixt):
+        with pytest.raises(KeyError):
+            dixt.keymeta('ghost')
+
+    def test_hidden_flag_raises_error_when_invalid_value(self, dixt):
+        with pytest.raises(TypeError):
+            dixt.keymeta('extra', hidden=2)
+
+
+class TestMapComparison:
+    def test_submap_supermap(self, dixt):
         criteria = [
             {'body': {'e': [2, {'g': 9.806}]}},
             {'body': {'f': {'y': [{'p': 5}, [8]]}}},
@@ -657,8 +767,8 @@ class TestDixt(unittest.TestCase):
             {'headers': {}, 'body': {}}
         ]
         for criterion in criteria:
-            self.assertTrue(Dixt(criterion).is_submap_of(self.dixt))
-            self.assertTrue(Dixt(self.dixt).is_supermap_of(criterion))
+            assert Dixt(criterion).is_submap_of(dixt)
+            assert Dixt(dixt).is_supermap_of(criterion)
 
         criteria = [
             {1: 1},
@@ -667,141 +777,44 @@ class TestDixt(unittest.TestCase):
             {'headers': {}, 'body': {}, 'nonexistent': {}}
         ]
         for criterion in criteria:
-            self.assertFalse(Dixt(criterion).is_submap_of(self.dixt))
-            self.assertFalse(Dixt(self.dixt).is_supermap_of(criterion))
+            assert not Dixt(criterion).is_submap_of(dixt)
+            assert not Dixt(dixt).is_supermap_of(criterion)
 
-        self.assertTrue(Dixt({1: 1}).is_submap_of([(1, 1), (2, 2)]))
+        assert Dixt({1: 1}).is_submap_of([(1, 1), (2, 2)])
 
         for criterion in ['string', {'set'}, 123, ['non', 'key-value', 'pair']]:
-            with self.assertRaises(Exception):
+            with pytest.raises(Exception):
                 # noinspection PyTypeChecker
                 Dixt().is_submap_of(criterion)
 
-    def test__popitem(self):
-        """Testing inherited function from MutableMapping."""
-        dx = Dixt(a=1, b=2, c=3)
-        # not LIFO as with dict
-        self.assertEqual(dx.popitem(), ('a', 1))
-
-    def test__setdefault__sets_value_to_nonexistent_key_from_default_value(self):
-        """Testing inherited function from MutableMapping."""
-        self.assertTrue('extra-extra' not in self.dixt)
-        self.dixt.setdefault('extra-extra', 'extra-value')
-        self.assertEqual(self.dixt.extra_extra, 'extra-value')
-
-        self.assertTrue('to-exist' not in self.dixt)
-        self.dixt.setdefault('to-exist')
-        self.assertEqual(self.dixt.to_exist, None)
-
-    def test__setdefault__does_not_overwrite_existing_value(self):
-        self.dixt.setdefault('extra', 'another-value')
-        self.assertEqual(self.dixt.extra, 'info')
-
-    def test__keymeta__hidden_flag(self):
-        self.dixt.keymeta('body', hidden=True)
-
-        self.assertTrue('body' in self.dixt.whats_hidden())
-        self.assertFalse('body' in self.dixt)
-        self.assertFalse(self.dixt == self.dict_equiv)
-
-        self.assertEqual(len(self.dixt), 2)
-        self.assertEqual(list(self.dixt.keys()), ['headers', 'extra'])
-
-        body = {'f': {'x': None}}
-        self.assertFalse(self.dixt.is_supermap_of({'body': body}))
-        dx = self.dixt.body | {'something': 'new'}
-        self.assertEqual(dx.something, 'new')
-        self.assertTrue(dx.is_supermap_of(body | {'something': 'new'}))
-
-    def test__keymeta__flag_a_non_str_key(self):
-        self.dixt[123] = '123'
-        self.dixt.keymeta(123, hidden=True)
-        self.assertTrue(123 not in self.dixt)
-
-    def test__keymeta__hidden_flag__can_still_get_and_set_items(self):
-        self.dixt.headers.keymeta('Accept-Encoding', hidden=True)
-        self.dixt.headers.accept_encoding = 'zip'
-        self.assertEqual(self.dixt.headers.accept_encoding, 'zip')
-
-        self.dixt.keymeta('headers', hidden=True)
-        self.dixt.headers['Accept-Encoding'] = 'tar'
-        self.assertEqual(self.dixt.headers['Accept-Encoding'], 'tar')
-
-    def test__keymeta__able_to_flag_items_of_hidden_items(self):
-        self.dixt.keymeta('body', hidden=True)
-        self.dixt.body.keymeta('e', hidden=True)
-        self.assertTrue('body' in self.dixt.whats_hidden())
-        self.assertTrue('e' in self.dixt.body.whats_hidden())
-
-    def test__keymeta__unsupported_flags_bypassed(self):
-        self.dixt.keymeta('body', whatever='value')
-        self.assertTrue('body' not in self.dixt.__keymeta__)
-
-        self.dixt.keymeta('extra', hidden=True, whatever='value')
-        self.assertTrue('whatever' not in self.dixt.__keymeta__['extra'])
-        self.assertTrue('hidden' in self.dixt.__keymeta__['extra'])
-
-    def test__keymeta__no_flags_returns_metadata_of_keys(self):
-        self.dixt.keymeta('extra', 'body', hidden=True)
-
-        expected = {'extra': {'hidden': True}}
-        self.assertEqual(self.dixt.keymeta('extra'), expected)
-
-        expected['body'] = {'hidden': True}
-        self.assertEqual(self.dixt.keymeta('extra', 'body'), expected)
-
-    def test__keymeta__remove_from_keymeta_a_deleted_flagged_item(self):
-        self.dixt.keymeta('extra', hidden=True)
-        del self.dixt.extra
-        self.assertTrue('extra' not in self.dixt.__data__)
-        self.assertTrue('extra' not in self.dixt.__keymeta__)
-        self.assertTrue('extra' not in self.dixt.__hidden__)
-
-    def test__keymeta__cleanup_of_metadata_on_reset_value(self):
-        self.dixt.keymeta('body', hidden=True)
-        self.assertTrue('hidden' in self.dixt.__keymeta__['body'])
-        self.dixt.keymeta('body', hidden=False)  # reset value
-        self.assertTrue('body' not in self.dixt.__keymeta__)
-
-    def test__keymeta__raises_error_when_keys_are_not_found(self):
-        with self.assertRaises(KeyError):
-            self.dixt.keymeta('ghost')
-
-    def test__keymeta__hidden_flag__raises_error_when_invalid_value(self):
-        with self.assertRaises(TypeError):
-            self.dixt.keymeta('extra', hidden=2)
-
-    def test__reverse(self):
+    def test_reverse(self):
         alpha = ['jan', 100, 1.1, (3, 5)]
         beta = ['feb', 200, 2.2, (7, 11)]
         dx = Dixt(dict(zip(alpha, beta)))
         rdx = dx.reverse()
-        self.assertEqual(rdx, dict(zip(beta, alpha)))
+        assert rdx == dict(zip(beta, alpha))
 
-    def test__reverse__exclude_hidden_items(self):
+    def test_reverse_exclude_hidden_items(self):
         dx = Dixt(a=100, b=200)
         dx.keymeta('a', hidden=True)
-        self.assertEqual(dx.reverse(), {200: 'b'})
+        assert dx.reverse() == {200: 'b'}
 
-    def test__reverse__raise_error_on_hashable_values(self):
-        with self.assertRaises(TypeError):
+    def test_reverse_raise_error_on_hashable_values(self):
+        with pytest.raises(TypeError):
             Dixt(a=100, b=[1, 2, 3]).reverse()
 
-        with self.assertRaises(TypeError):
+        with pytest.raises(TypeError):
             Dixt(a=100, b={2: 200}).reverse()
 
-        with self.assertRaises(TypeError):
+        with pytest.raises(TypeError):
             Dixt(a=100, b={200, 300}).reverse()
 
-    def _assert_obj_tree_has_no_dixt_object(self, obj):
-        self.assertNotIsInstance(obj, Dixt)
-        if isinstance(obj, dict):
-            for key in obj:
-                self._assert_obj_tree_has_no_dixt_object(obj[key])
-        elif isinstance(obj, list):
-            for item in obj:
-                self._assert_obj_tree_has_no_dixt_object(item)
 
-
-if __name__ == '__main__':
-    unittest.main()
+def _assert_obj_tree_has_no_dixt_object(obj):
+    assert not isinstance(obj, Dixt)
+    if isinstance(obj, dict):
+        for key in obj:
+            _assert_obj_tree_has_no_dixt_object(obj[key])
+    elif isinstance(obj, list):
+        for item in obj:
+            _assert_obj_tree_has_no_dixt_object(item)
