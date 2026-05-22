@@ -472,6 +472,39 @@ class Dixt(MutableMapping):
             for k, v in container.items():
                 self.__setattr__(k, v)
 
+    def merge_update(self, other, *, recurse_lists=False):
+        """Update this object with the contents of ``other`` recursively.
+
+        Unlike :meth:`update`, nested ``Mapping`` values are merged rather than
+        replaced. For ``list`` values, behaviour depends on ``recurse_lists``:
+        when ``True``, items are merged element-by-element (paired ``Mapping``
+        items are recursively merged; all other paired items are replaced; the
+        list is resized to match ``other``'s length); when ``False`` (default),
+        the list in ``self`` is replaced entirely.
+
+        :param other: A ``Mapping`` (e.g. ``dict``, ``Dixt``) to merge from.
+        :param recurse_lists: If ``True``, merge list items element-by-element
+                              rather than replacing the whole list.
+        :raises TypeError: If ``other`` is not a ``Mapping``.
+        """
+        if not isinstance(other, Mapping):
+            raise TypeError(f'Expected Mapping, got {type(other)}')
+
+        for key, other_value in other.items():
+            self_value = self.getx(key, default=...)
+
+            if self_value is Ellipsis:
+                self.__setattr__(key, other_value)
+            elif isinstance(self_value, Dixt) and isinstance(other_value, Mapping):
+                self_value.merge_update(other_value, recurse_lists=recurse_lists)
+            elif isinstance(self_value, list) and isinstance(other_value, list):
+                if recurse_lists:
+                    _merge_list_update(self_value, other_value, recurse_lists)
+                else:
+                    self.__setattr__(key, other_value)
+            else:
+                self.__setattr__(key, other_value)
+
     def values(self) -> ValuesView:
         """Return a set-like object providing a view
         to this object's values.
@@ -540,6 +573,22 @@ def _hype(spec):
         return data
 
     return spec
+
+
+def _merge_list_update(self_list, other_list, recurse_lists):
+    min_len = min(len(self_list), len(other_list))
+
+    for i in range(min_len):
+        if isinstance(self_list[i], Mapping) and isinstance(other_list[i], Mapping):
+            self_list[i].merge_update(other_list[i], recurse_lists=recurse_lists)
+        else:
+            self_list[i] = Dixt(other_list[i]) if isinstance(other_list[i], dict) else _hype(other_list[i])
+
+    if len(other_list) < len(self_list):
+        del self_list[min_len:]
+    elif len(other_list) > len(self_list):
+        for item in other_list[min_len:]:
+            self_list.append(Dixt(item) if isinstance(item, dict) else _hype(item))
 
 
 def _normalise_key(key: Hashable) -> Hashable:
