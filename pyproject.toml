@@ -35,7 +35,7 @@ exclude = ["tests"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
-jsonpath-ng = "1.7.*"
+jsonpath-ng = "1.8.*"
 
 
 [tool.poetry.group.dev.dependencies]
