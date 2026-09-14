@@ -241,29 +241,15 @@ class Dixt(MutableMapping):
         """Remove all items in this object."""
         # The try-while-true mechanism is copied from Python's collections module,
         # with comment "proper disposal".
-        try:
-            while True:
-                self.__data__.popitem()
-        except KeyError:
-            pass
-
-        try:
-            while True:
-                self.__keymap__.popitem()
-        except KeyError:
-            pass
-
-        try:
-            while True:
-                self.__keymeta__.popitem()
-        except KeyError:
-            pass
-
-        try:
-            while True:
-                self.__hidden__.popitem()
-        except KeyError:
-            pass
+        for container in (self.__data__,
+                          self.__keymap__,
+                          self.__keymeta__,
+                          self.__hidden__):
+            try:
+                while True:
+                    container.popitem()
+            except KeyError:
+                pass
 
     def dict(self) -> Dict:
         """Convert this object to ``dict``, with non-normalised keys."""
@@ -394,19 +380,6 @@ class Dixt(MutableMapping):
 
         :param other: Other ``dict``, ``Dixt``, or ``Mapping`` objects to compare to.
         """
-        def _is_submap(this, reference):
-            if not isinstance(reference, Mapping):
-                return False
-            for key, value in this.items():
-                if key not in reference:
-                    return False
-                if not hasattr(value, 'keys'):
-                    if reference[key] != value:
-                        return False
-                elif not _is_submap(this[key], reference[key]):
-                    return False
-            return True
-
         if not isinstance(other, (tuple, list, Mapping)):
             raise TypeError(f'Invalid type ({type(other)})')
         if not isinstance(other, Dixt):
@@ -619,6 +592,21 @@ class Dixt(MutableMapping):
             del self.__keymeta__[key]
 
 
+def _is_submap(this, reference):
+    """Compare keys and values recursively against a reference mapping."""
+    if not isinstance(reference, Mapping):
+        return False
+    for key, value in this.items():
+        if key not in reference:
+            return False
+        if not hasattr(value, 'keys'):
+            if reference[key] != value:
+                return False
+        elif not _is_submap(this[key], reference[key]):
+            return False
+    return True
+
+
 def _to_repr_if_nonbuiltin(value):
     if isinstance(value, Mapping):
         return Dixt(value) if not isinstance(value, Dixt) else value
@@ -642,14 +630,12 @@ def _diff_entries(self_dixt, other):
     root_self: dict = {}
     root_other: dict = {}
     branches: list = []
-    matched: list = []
 
     for key in self_data:
         if key not in other_data:
             root_self[key] = _to_repr_if_nonbuiltin(self_data[key])
             continue
 
-        matched.append(key)
         sv, ov = self_data[key], other_data[key]
         if sv == ov:
             continue
@@ -668,9 +654,10 @@ def _diff_entries(self_dixt, other):
             root_self[key] = _to_repr_if_nonbuiltin(sv)
             root_other[key] = _to_repr_if_nonbuiltin(ov)
 
-    for okey in other_data:
-        if okey not in matched:
-            root_other[okey] = _to_repr_if_nonbuiltin(other_data[okey])
+    root_other.update(
+        (key, _to_repr_if_nonbuiltin(value))
+        for key, value in other_data.items() if key not in self_data
+    )
 
     return root_self, root_other, branches
 
