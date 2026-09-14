@@ -1,6 +1,12 @@
 Changelog
 =========
 
+v0.7
+****
+
+* New ``merge_update()`` to update ``self`` with contents of other mapping.
+* New ``diff()`` to compare differences between ``self`` and other mapping.
+
 v0.6
 ****
 
