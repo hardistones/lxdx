@@ -116,6 +116,16 @@ class TestInit:
         dx = Dixt(zip(['a', 'b'], [1, 2]))
         assert dx == {'a': 1, 'b': 2}
 
+    def test_accepts_generator_of_pairs(self):
+        pairs = ((key, value) for key, value in [('a', 1), ('b', 2)])
+        assert Dixt(pairs) == {'a': 1, 'b': 2}
+
+    def test_preserves_identity_based_keys(self):
+        key = object()
+        dx = Dixt({key: 1})
+        assert dx[key] == 1
+        assert next(iter(dx)) is key
+
     def test_should_not_change_data_type(self):
         dx = Dixt(a=(1, 2, 3))
         assert dx == {'a': (1, 2, 3)}
@@ -140,6 +150,31 @@ class TestInit:
 
         dx = Dixt(alpha='α', beta='β')
         assert Dixt(dx, beta='beta') == {'alpha': 'α', 'beta': 'beta'}
+
+    def test_kwargs_update_normalised_alias(self):
+        data = {'A-B': 1}
+        dx = Dixt(data, a_b=2)
+        assert dx.dict() == {'A-B': 2}
+        assert dx['A-B'] == dx.a_b == 2
+        assert data == {'A-B': 1}
+
+    @pytest.mark.parametrize('data', [
+        {'A-B': 1, 'a_b': 2},
+        {'a_b': 2, 'A-B': 1},
+    ])
+    def test_preserves_colliding_original_keys(self, data):
+        dx = Dixt(data)
+        assert dx.dict() == data
+        assert dx['A-B'] == 1
+        assert dx['a_b'] == dx.a_b == 2
+        assert dx.__keymap__ == {'a_b': 'a_b'}
+        assert Dixt(dx).dict() == data
+        dx['A-B'] = 3
+        assert dx['A-B'] == 3
+        assert dx.a_b == 2
+        del dx['A-B']
+        assert dx.dict() == {'a_b': 2}
+        assert dx.a_b == 2
 
 
 class TestEquality:
@@ -351,6 +386,17 @@ class TestAttributeAccess:
         with pytest.raises(KeyError):
             del dixt.not_found
 
+    @pytest.mark.parametrize('key', ['A-B', 'a_b'])
+    def test_delete_hidden_key_cleans_normalised_metadata(self, key):
+        dx = Dixt({'A-B': 1})
+        dx.keymeta('A-B', hidden=True)
+        del dx[key]
+        assert dx.whats_hidden() == ()
+        assert dx.__keymap__ == {}
+        assert dx.__keymeta__ == {}
+        with pytest.raises(KeyError):
+            dx['A-B']
+
 
 class TestGetx:
 
@@ -379,6 +425,13 @@ class TestGetx:
 
 
 class TestItemAccess:
+
+    @pytest.mark.parametrize('key', [[], {}])
+    def test_unhashable_key_raises_key_error(self, key):
+        with pytest.raises(KeyError) as exc:
+            Dixt(a=1)[key]
+        assert exc.value.args == (key,)
+        assert isinstance(exc.value.__cause__, TypeError)
 
     def test_getitem_gets_value_of_existing_items(self, dixt):
         assert dixt['headers']['Accept-Encoding'] == 'gzip'
@@ -450,6 +503,13 @@ class TestItemAccess:
     def test_delitem_raises_error_item_is_not_found(self, dixt):
         with pytest.raises(KeyError):
             del dixt['not-found']
+
+    @pytest.mark.parametrize('key', ['items', 'get', 'clear'])
+    def test_missing_method_name_is_not_a_mapping_entry(self, key):
+        dx = Dixt()
+        assert key not in dx
+        with pytest.raises(KeyError):
+            dx[key]
 
 
 class TestUpdate:
@@ -574,6 +634,26 @@ class TestCollectionOps:
         assert dixt == Dixt(headers=Dixt(), body=Dixt(), extra='info')
         assert dixt.body.__keymap__ == {}
 
+    def test_clear_removes_hidden_values_and_metadata(self):
+        dx = Dixt(visible=1, hidden=2)
+        dx.keymeta('hidden', hidden=True)
+        dx.clear()
+        assert dx == {}
+        assert dx.whats_hidden() == ()
+        assert dx.__keymap__ == {}
+        assert dx.__keymeta__ == {}
+        with pytest.raises(KeyError):
+            dx['hidden']
+
+    def test_reinsert_after_clear_is_visible(self):
+        dx = Dixt(a=1)
+        dx.keymeta('a', hidden=True)
+        dx.clear()
+        dx['a'] = 2
+        assert dx.dict() == {'a': 2}
+        assert dx['a'] == 2
+        assert dx.whats_hidden() == ()
+
     def test_popitem(self):
         """Testing inherited function from MutableMapping."""
         dx = Dixt(a=1, b=2, c=3)
@@ -594,6 +674,13 @@ class TestCollectionOps:
         dixt.setdefault('extra', 'another-value')
         assert dixt.extra == 'info'
 
+    @pytest.mark.parametrize('key', ['items', 'get', 'clear'])
+    def test_setdefault_inserts_missing_method_name(self, key):
+        dx = Dixt()
+        assert dx.setdefault(key, 42) == 42
+        assert dx[key] == 42
+        assert key in dx
+
 
 class TestConversion:
 
@@ -612,6 +699,13 @@ class TestConversion:
         dixt.extra = Dixt(a=1, b=[Dixt(c=3)])
         _assert_obj_tree_has_no_dixt_object(dixt.dict())
 
+    def test_dict_converts_mapping_inside_tuple(self):
+        dx = Dixt(a=({'x': 1},))
+        result = dx.dict()
+        assert isinstance(result['a'], tuple)
+        assert type(result['a'][0]) is dict
+        assert result == {'a': ({'x': 1},)}
+
     def test_json_conversion_to_json_format(self, dixt, dict_equiv):
         json_equivalent = json.dumps(dict_equiv)
         assert dixt.json() == json_equivalent
@@ -620,6 +714,10 @@ class TestConversion:
         json_string = json.dumps(dict_equiv)
         dx = Dixt.from_json(json_string)
         assert dx == dict_equiv
+
+    def test_json_converts_mapping_inside_tuple(self):
+        dx = Dixt(a=({'x': 1},))
+        assert json.loads(dx.json()) == {'a': [{'x': 1}]}
 
 
 class TestNestedAccess:
@@ -760,6 +858,23 @@ class TestKeymeta:
         dixt.keymeta('body', hidden=False)  # reset value
         assert 'body' not in dixt.__keymeta__
 
+    @pytest.mark.parametrize('hidden', [False, True])
+    @pytest.mark.parametrize('data', [
+        {'A-B': 1, 'a_b': 2},
+        {'a_b': 2, 'A-B': 1},
+    ])
+    def test_setting_same_hidden_flag_is_idempotent(self, hidden, data):
+        dx = Dixt(data)
+        dx.keymeta('a_b', hidden=hidden)
+        dx.keymeta('a_b', hidden=hidden)
+        assert dx['A-B'] == 1
+        assert dx['a_b'] == dx.a_b == 2
+        assert 'A-B' in dx
+        assert dx.whats_hidden() == (('a_b',) if hidden else ())
+        assert ('a_b' in dx) is (not hidden)
+        assert dx.dict() == ({'A-B': 1} if hidden else data)
+        assert dx.__keymap__ == {'a_b': 'a_b'}
+
     def test_raises_error_when_keys_are_not_found(self, dixt):
         with pytest.raises(KeyError):
             dixt.keymeta('ghost')
@@ -799,6 +914,14 @@ class TestMapComparison:
             with pytest.raises(Exception):
                 # noinspection PyTypeChecker
                 Dixt().is_submap_of(criterion)
+
+    @pytest.mark.parametrize('nested', [{}, {'x': 1}])
+    def test_mapping_is_not_submap_of_scalar(self, nested):
+        assert Dixt(a=nested).is_submap_of({'a': 2}) is False
+
+    @pytest.mark.parametrize('nested', [{}, {'x': 1}])
+    def test_scalar_is_not_supermap_of_mapping(self, nested):
+        assert Dixt(a=2).is_supermap_of({'a': nested}) is False
 
     def test_reverse(self):
         alpha = ['jan', 100, 1.1, (3, 5)]
@@ -959,8 +1082,29 @@ class TestMergeUpdate:
         with pytest.raises(TypeError):
             dx.merge_update(other)
 
+    @pytest.mark.parametrize('key', [1, (1, 2)])
+    def test_merge_update_adds_non_string_key(self, key):
+        dx = Dixt()
+        dx.merge_update({key: 'value'})
+        assert dx == {key: 'value'}
+
+    def test_recursive_list_merge_accepts_chainmap_elements(self):
+        dx = Dixt(a=[ChainMap({'x': 1, 'keep': 2})])
+        dx.merge_update({'a': [{'x': 10, 'new': 3}]}, recurse_lists=True)
+        assert dx.a[0] == {'x': 10, 'keep': 2, 'new': 3}
+
 
 class TestDiff:
+
+    @pytest.mark.parametrize('in_list', [False, True])
+    def test_nested_mapping_order_does_not_create_differences(self, in_list):
+        left = ChainMap({'nested': OrderedDict([('a', 1), ('b', 2)])})
+        right = ChainMap({'nested': OrderedDict([('b', 2), ('a', 1)])})
+        # OrderedDict equality is order-sensitive; mapping diffs are not.
+        assert left != right
+        if in_list:
+            left, right = [left], [right]
+        assert Dixt(value=left).diff({'value': right}) == []
 
     def test_equal_dicts_return_empty_list(self):
         a = Dixt(x=1, y=2)
@@ -1018,7 +1162,7 @@ class TestDiff:
 
     def test_equal_nested_mapping_excluded_entirely(self):
         a = Dixt(x=1, nested={'p': 10, 'same': 'val'})
-        b = {'x':1, 'nested':{'p': 10, 'same': 'val'}}
+        b = {'x': 1, 'nested': {'p': 10, 'same': 'val'}}
         assert a.diff(b) == []
 
     def test_deeply_nested_diff(self):
@@ -1150,7 +1294,7 @@ class TestDiff:
         assert self_diff == {'y': 2}
         assert other_diff == {'y': 99}
 
-    @pytest.mark.parametrize('invalid', ['string', 123, [1,2], {1,2}, object()])
+    @pytest.mark.parametrize('invalid', ['string', 123, [1, 2], {1, 2}, object()])
     def test_raises_type_error_for_non_mapping(self, invalid):
         a = Dixt(x=1)
         with pytest.raises(TypeError):
@@ -1316,114 +1460,6 @@ class TestDiff:
         assert dx.diff({'x': [[{'a_b': 1}]]}) == [
             ({'x': [[{'A-B': 1}]]}, {'x': [[{'a_b': 1}]]})
         ]
-
-
-class TestEdgeCaseRegressions:
-
-    @pytest.mark.skip
-    @pytest.mark.parametrize('use_kwargs', [False, True])
-    def test_constructor_rejects_normalised_key_collisions(self, use_kwargs):
-        # Match __setitem__: distinct original keys must not share an alias.
-        with pytest.raises(KeyError):
-            if use_kwargs:
-                Dixt({'A-B': 1}, a_b=2)
-            else:
-                Dixt({'A-B': 1, 'a_b': 2})
-
-    @pytest.mark.skip
-    @pytest.mark.parametrize('hidden', [False, True])
-    def test_setting_same_hidden_flag_is_idempotent(self, hidden):
-        dx = Dixt({'A-B': 1})
-        dx.keymeta('A-B', hidden=hidden)
-        dx.keymeta('a_b', hidden=hidden)
-        assert dx['A-B'] == 1
-        assert dx.whats_hidden() == (('A-B',) if hidden else ())
-        assert ('A-B' in dx) is (not hidden)
-
-    @pytest.mark.parametrize('key', ['items', 'get', 'clear'])
-    def test_missing_method_name_is_not_a_mapping_entry(self, key):
-        dx = Dixt()
-        assert key not in dx
-        with pytest.raises(KeyError):
-            dx[key]
-
-    @pytest.mark.parametrize('key', ['items', 'get', 'clear'])
-    def test_setdefault_inserts_missing_method_name(self, key):
-        dx = Dixt()
-        assert dx.setdefault(key, 42) == 42
-        assert dx[key] == 42
-        assert key in dx
-
-    @pytest.mark.parametrize('key', ['A-B', 'a_b'])
-    def test_delete_hidden_key_cleans_normalised_metadata(self, key):
-        dx = Dixt({'A-B': 1})
-        dx.keymeta('A-B', hidden=True)
-        del dx[key]
-        assert dx.whats_hidden() == ()
-        assert dx.__keymap__ == {}
-        assert dx.__keymeta__ == {}
-        with pytest.raises(KeyError):
-            dx['A-B']
-
-    def test_clear_removes_hidden_values_and_metadata(self):
-        dx = Dixt(visible=1, hidden=2)
-        dx.keymeta('hidden', hidden=True)
-        dx.clear()
-        assert dx == {}
-        assert dx.whats_hidden() == ()
-        assert dx.__keymap__ == {}
-        assert dx.__keymeta__ == {}
-        with pytest.raises(KeyError):
-            dx['hidden']
-
-    def test_reinsert_after_clear_is_visible(self):
-        dx = Dixt(a=1)
-        dx.keymeta('a', hidden=True)
-        dx.clear()
-        dx['a'] = 2
-        assert dx.dict() == {'a': 2}
-        assert dx['a'] == 2
-        assert dx.whats_hidden() == ()
-
-    def test_constructor_accepts_generator_of_pairs(self):
-        pairs = ((key, value) for key, value in [('a', 1), ('b', 2)])
-        assert Dixt(pairs) == {'a': 1, 'b': 2}
-
-    def test_constructor_preserves_identity_based_keys(self):
-        key = object()
-        dx = Dixt({key: 1})
-        assert dx[key] == 1
-        assert next(iter(dx)) is key
-
-    @pytest.mark.parametrize('key', [1, (1, 2)])
-    def test_merge_update_adds_non_string_key(self, key):
-        dx = Dixt()
-        dx.merge_update({key: 'value'})
-        assert dx == {key: 'value'}
-
-    def test_recursive_list_merge_accepts_chainmap_elements(self):
-        dx = Dixt(a=[ChainMap({'x': 1, 'keep': 2})])
-        dx.merge_update({'a': [{'x': 10, 'new': 3}]}, recurse_lists=True)
-        assert dx.a[0] == {'x': 10, 'keep': 2, 'new': 3}
-
-    def test_dict_converts_mapping_inside_tuple(self):
-        dx = Dixt(a=({'x': 1},))
-        result = dx.dict()
-        assert isinstance(result['a'], tuple)
-        assert type(result['a'][0]) is dict
-        assert result == {'a': ({'x': 1},)}
-
-    def test_json_converts_mapping_inside_tuple(self):
-        dx = Dixt(a=({'x': 1},))
-        assert json.loads(dx.json()) == {'a': [{'x': 1}]}
-
-    @pytest.mark.parametrize('nested', [{}, {'x': 1}])
-    def test_mapping_is_not_submap_of_scalar(self, nested):
-        assert Dixt(a=nested).is_submap_of({'a': 2}) is False
-
-    @pytest.mark.parametrize('nested', [{}, {'x': 1}])
-    def test_scalar_is_not_supermap_of_mapping(self, nested):
-        assert Dixt(a=2).is_supermap_of({'a': nested}) is False
 
 
 def _assert_obj_tree_has_no_dixt_object(obj):

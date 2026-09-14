@@ -32,7 +32,6 @@ import json
 
 from collections import defaultdict
 from collections.abc import KeysView, ItemsView, ValuesView, MutableMapping
-from copy import deepcopy
 from jsonpath_ng import parse
 from typing import Any, Dict, List, Mapping, Tuple, Union, Hashable
 
@@ -63,19 +62,30 @@ class Dixt(MutableMapping):
 
         :param data: Can be an iterable of key-value pairs, a ``dict``,
                      another ``Dixt`` object
-        :param kwargs: Additional items which add or update
-                       (if there are same keys) ``data``.
+        :param kwargs: Additional items which add or update ``data`` using
+                       original keys or normalised aliases.
+
+        Colliding original keys are preserved. A key already in normalised
+        form owns its alias; otherwise the last colliding key owns it.
         """
         super().__init__()
         try:
-            spec = dict({} if data is None else data) | kwargs
+            spec = dict({} if data is None else data)
         except Exception as exc:
             raise DixtException(f"Cannot convert to dict type: {data}") from exc
 
         # holds all normalised keys including non-str keys
         self.__dict__['__keymap__'] = {
-            _normalise_key(key): key for key in spec
+            _normalise_key(key): (
+                _normalise_key(key) if _normalise_key(key) in spec else key
+            ) for key in spec
         }
+
+        for key, value in kwargs.items():
+            nkey = _normalise_key(key)
+            origkey = key if key in spec else self.__keymap__.get(nkey, key)
+            spec[origkey] = value
+            self.__keymap__.setdefault(nkey, origkey)
 
         # holds all original keys and their values
         self.__dict__['__data__'] = _hype(spec)
@@ -111,7 +121,9 @@ class Dixt(MutableMapping):
                 del self.__keymeta__[_normalise_key(origkey)]
             else:
                 del self.__data__[origkey]
-            del self.__keymap__[_normalise_key(attr)]
+            nkey = _normalise_key(attr)
+            if self.__keymap__.get(nkey, ...) == origkey:
+                del self.__keymap__[nkey]
         else:
             raise KeyError(f"Dixt object has no attribute '{attr}'")
 
@@ -576,11 +588,17 @@ class Dixt(MutableMapping):
 
     def __get_orig_key(self, key):
         """Returns Ellipsis if not found."""
-        return self.__keymap__.get(_normalise_key(key), ...)
+        # Copy reconstruction can query attributes before restoring state.
+        state = object.__getattribute__(self, '__dict__')
+        if key in state.get('__data__', {}) or key in state.get('__hidden__', {}):
+            return key
+        return state.get('__keymap__', {}).get(_normalise_key(key), ...)
 
     def __add_hidden_meta(self, key, value):
         self.__keymeta__[key]['hidden'] = value
         origkey = self.__get_orig_key(key)
+        if value == (origkey in self.__hidden__):
+            return
         if value:
             self.__hidden__[origkey] = self.__data__[origkey]
             del self.__data__[origkey]
