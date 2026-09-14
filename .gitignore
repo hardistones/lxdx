@@ -35,10 +35,17 @@ docs/build
 poetry.toml
 
 # others
-.todo
-.scratch
-SCRATCH
+.todo*
+.scratch*
 tests/scratch*
 
 # sublime projects and workspaces
 *.sublime-workspace
+
+# AI
+.aiassistant/
+.claude/
+.codex/
+.cursor/
+.junie/
+AGENTS.md

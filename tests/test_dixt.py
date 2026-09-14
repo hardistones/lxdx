@@ -951,6 +951,352 @@ class TestMergeUpdate:
                 dx.merge_update(other)
 
 
+class TestDiff:
+    def test_equal_dicts_return_empty_list(self):
+        a = Dixt(x=1, y=2)
+        b = Dixt(x=1, y=2)
+        assert a.diff(b) == []
+
+    def test_equal_empty_dicts_return_empty_list(self):
+        assert Dixt().diff(Dixt()) == []
+        assert Dixt().diff({}) == []
+
+    def test_flat_value_differs(self):
+        a = Dixt(x=1, y=2)
+        b = Dixt(x=1, y=99)
+        result = a.diff(b)
+        assert len(result) == 1
+        self_diff, other_diff = result[0]
+        assert self_diff == {'y': 2}
+        assert other_diff == {'y': 99}
+
+    def test_key_only_in_self(self):
+        a = Dixt(x=1, z=3)
+        b = Dixt(x=1)
+        result = a.diff(b)
+        assert len(result) == 1
+        self_diff, other_diff = result[0]
+        assert self_diff == {'z': 3}
+        assert other_diff == {}
+
+    def test_key_only_in_other(self):
+        a = Dixt(x=1)
+        b = Dixt(x=1, w=4)
+        result = a.diff(b)
+        assert len(result) == 1
+        self_diff, other_diff = result[0]
+        assert self_diff == {}
+        assert other_diff == {'w': 4}
+
+    def test_mix_of_differing_and_unique_keys(self):
+        a = Dixt(x=1, y=2, z=3)
+        b = Dixt(x=1, y=99, w=4)
+        result = a.diff(b)
+        assert len(result) == 1
+        self_diff, other_diff = result[0]
+        assert self_diff == {'y': 2, 'z': 3}
+        assert other_diff == {'y': 99, 'w': 4}
+
+    def test_nested_equal_keys_are_excluded(self):
+        a = Dixt(nested={'p': 10, 'q': 20, 'same': 'val'})
+        b = Dixt(nested={'p': 10, 'q': 99, 'same': 'val'})
+        result = a.diff(b)
+        assert len(result) == 1
+        self_diff, other_diff = result[0]
+        assert self_diff == {'nested': {'q': 20}}
+        assert other_diff == {'nested': {'q': 99}}
+
+    def test_equal_nested_mapping_excluded_entirely(self):
+        a = Dixt(x=1, nested={'p': 10, 'same': 'val'})
+        b = {'x':1, 'nested':{'p': 10, 'same': 'val'}}
+        assert a.diff(b) == []
+
+    def test_deeply_nested_diff(self):
+        a = Dixt(a={'b': {'c': 1, 'd': 2}})
+        result = a.diff({'a': {'b': {'c': 1, 'd': 99}}})
+        assert len(result) == 1
+        self_diff, other_diff = result[0]
+        assert self_diff == {'a': {'b': {'d': 2}}}
+        assert other_diff == {'a': {'b': {'d': 99}}}
+
+    def test_mixed_flat_and_nested_diffs(self):
+        a = Dixt(x=1, nested={'p': 10, 'q': 20}, z=3)
+        b = Dixt(x=100, nested={'p': 10, 'q': 99}, z=3)
+        result = a.diff(b)
+        assert len(result) == 2
+        flat = next((sd, od) for sd, od in result if 'x' in sd or 'x' in od)
+        nested = next((sd, od) for sd, od in result if 'nested' in sd or 'nested' in od)
+        sd, od = flat
+        assert sd == {'x': 1}
+        assert od == {'x': 100}
+        sd, od = nested
+        assert sd == {'nested': {'q': 20}}
+        assert od == {'nested': {'q': 99}}
+
+    def test_mapping_only_in_other_wrapped_as_dixt(self):
+        a = Dixt(x=1)
+        b = Dixt(x=1, nested={'y': 2})
+        result = a.diff(b)
+        assert len(result) == 1
+        self_diff, other_diff = result[0]
+        assert self_diff == {}
+        assert other_diff == {'nested': {'y': 2}}
+        assert isinstance(other_diff['nested'], Dixt)
+
+    def test_mapping_only_in_self_wrapped_as_dixt(self):
+        a = Dixt(x=1, nested={'y': 2})
+        b = Dixt(x=1)
+        result = a.diff(b)
+        assert len(result) == 1
+        self_diff, other_diff = result[0]
+        assert self_diff == {'nested': {'y': 2}}
+        assert isinstance(self_diff['nested'], Dixt)
+        assert other_diff == {}
+
+    def test_non_builtin_value_uses_repr(self):
+        class Foo:
+            def __repr__(self):
+                return 'Foo()'
+
+        obj = Foo()
+        a = Dixt(x=obj)
+        b = Dixt(x=1)
+        result = a.diff(b)
+        assert len(result) == 1
+        self_diff, other_diff = result[0]
+        assert self_diff == {'x': 'Foo()'}
+        assert other_diff == {'x': 1}
+
+    def test_non_builtin_only_in_one_side_uses_repr(self):
+        class Bar:
+            def __repr__(self):
+                return 'Bar()'
+
+        obj = Bar()
+        a = Dixt(x=obj)
+        b = Dixt(y=1)
+        result = a.diff(b)
+        self_diff, other_diff = result[0]
+        assert self_diff == {'x': 'Bar()'}
+        assert other_diff == {'y': 1}
+
+    def test_result_contains_dixt_objects(self):
+        a = Dixt(x=1, y=2)
+        b = Dixt(x=1, y=99)
+        result = a.diff(b)
+        assert isinstance(result[0][0], Dixt)
+        assert isinstance(result[0][1], Dixt)
+
+    def test_list_values_that_differ_included(self):
+        a = Dixt(x=[1, 2, 3])
+        b = Dixt(x=[1, 2, 99])
+        result = a.diff(b)
+        assert len(result) == 1
+        self_diff, other_diff = result[0]
+        assert self_diff == {'x': [..., 3]}
+        assert other_diff == {'x': [..., 99]}
+
+    def test_list_values_with_mappings(self):
+        a = Dixt(x=[1, 2, {'a': 1, 'b': {'c': 3, 'd': 4}}, {'same': 0}])
+        b = Dixt(x=[1, 2, {'a': 1, 'b': {'c': 3, 'd': 9}}, {'same': 0}])
+        result = a.diff(b)
+        assert len(result) == 1
+        self_diff, other_diff = result[0]
+        assert self_diff == {'x': [..., {'b': {'d': 4}}, ...]}
+        assert other_diff == {'x': [..., {'b': {'d': 9}}, ...]}
+
+    def test_none_value_differs(self):
+        a = Dixt(x=None, y=2)
+        b = Dixt(x=None, y=None)
+        result = a.diff(b)
+        assert len(result) == 1
+        self_diff, other_diff = result[0]
+        assert self_diff == {'y': 2}
+        assert other_diff == {'y': None}
+
+    def test_completely_disjoint_keys(self):
+        a = Dixt(x=1)
+        b = Dixt(y=2)
+        result = a.diff(b)
+        assert len(result) == 1
+        self_diff, other_diff = result[0]
+        assert self_diff == {'x': 1}
+        assert other_diff == {'y': 2}
+
+    def test_accepts_plain_dict(self):
+        a = Dixt(x=1, y=2)
+        result = a.diff({'x': 1, 'y': 99})
+        assert len(result) == 1
+        self_diff, other_diff = result[0]
+        assert self_diff == {'y': 2}
+        assert other_diff == {'y': 99}
+
+    def test_accepts_ordered_dict(self):
+        from collections import OrderedDict
+        a = Dixt(x=1, y=2)
+        result = a.diff(OrderedDict([('x', 1), ('y', 99)]))
+        assert len(result) == 1
+        self_diff, other_diff = result[0]
+        assert self_diff == {'y': 2}
+        assert other_diff == {'y': 99}
+
+    def test_raises_type_error_for_non_mapping(self):
+        a = Dixt(x=1)
+        for invalid in ['string', 123, [1, 2], {1, 2}, object()]:
+            with pytest.raises(TypeError):
+                a.diff(invalid)
+
+    def test_non_str_keys_supported(self):
+        a = Dixt({1: 'a', 2: 'b'})
+        b = Dixt({1: 'a', 2: 'Z'})
+        result = a.diff(b)
+        assert len(result) == 1
+        self_diff, other_diff = result[0]
+        assert self_diff == {2: 'b'}
+        assert other_diff == {2: 'Z'}
+
+    def test_flat_and_two_nested_branches_yield_three_pairs(self):
+        a = Dixt(x=1, b1={'a': 1, 'same': 0}, b2={'c': 3, 'c2': {'d2': 50, 'same': 0}})
+        b = Dixt(x=2, b1={'a': 9, 'same': 0}, b2={'c': 9, 'c2': {'d2': 23, 'same': 0, 'extra': 1}})
+        result = a.diff(b)
+        assert len(result) == 3
+        flat = next((sd, od) for sd, od in result if 'x' in sd or 'x' in od)
+        p1 = next((sd, od) for sd, od in result if 'b1' in sd or 'b1' in od)
+        p2 = next((sd, od) for sd, od in result if 'b2' in sd or 'b2' in od)
+        sd, od = flat
+        assert sd == {'x': 1}
+        assert od == {'x': 2}
+        sd, od = p1
+        assert sd == {'b1': {'a': 1}}
+        assert od == {'b1': {'a': 9}}
+        sd, od = p2
+        assert sd == {'b2': {'c': 3, 'c2': {'d2': 50}}}
+        assert od == {'b2': {'c': 9, 'c2': {'d2': 23, 'extra': 1}}}
+
+    def test_one_mapping_one_scalar_for_same_key(self):
+        a = Dixt(x={'nested': 1})
+        b = Dixt(x='scalar')
+        result = a.diff(b)
+        assert len(result) == 1
+        self_diff, other_diff = result[0]
+        assert isinstance(self_diff['x'], Dixt)
+        assert other_diff['x'] == 'scalar'
+
+    def test_list_consecutive_differing_items_not_collapsed(self):
+        a = Dixt(x=[1, 2, 3])
+        b = Dixt(x=[9, 8, 3])
+        self_diff, other_diff = a.diff(b)[0]
+        assert self_diff == {'x': [1, 2, ...]}
+        assert other_diff == {'x': [9, 8, ...]}
+
+    def test_list_all_items_differ(self):
+        a = Dixt(x=[1, 2])
+        b = Dixt(x=[3, 4])
+        self_diff, other_diff = a.diff(b)[0]
+        assert self_diff == {'x': [1, 2]}
+        assert other_diff == {'x': [3, 4]}
+
+    def test_list_self_longer_keeps_surplus_items(self):
+        a = Dixt(x=[1, 2, 3, 4])
+        b = Dixt(x=[1, 2])
+        self_diff, other_diff = a.diff(b)[0]
+        assert self_diff == {'x': [..., 3, 4]}
+        assert other_diff == {'x': [...]}
+
+    def test_list_other_longer_keeps_surplus_items(self):
+        a = Dixt(x=[1])
+        b = Dixt(x=[1, 2, {'y': 3}])
+        self_diff, other_diff = a.diff(b)[0]
+        assert self_diff == {'x': [...]}
+        assert other_diff == {'x': [..., 2, {'y': 3}]}
+        assert isinstance(other_diff['x'][2], Dixt)
+
+    def test_list_empty_versus_non_empty(self):
+        a = Dixt(x=[])
+        b = Dixt(x=[1, 2])
+        self_diff, other_diff = a.diff(b)[0]
+        assert self_diff == {'x': []}
+        assert other_diff == {'x': [1, 2]}
+
+    def test_nested_lists_diffed_recursively(self):
+        a = Dixt(x=[[1, 2], [3], [4]])
+        b = Dixt(x=[[1, 99], [3], [4]])
+        self_diff, other_diff = a.diff(b)[0]
+        assert self_diff == {'x': [[..., 2], ...]}
+        assert other_diff == {'x': [[..., 99], ...]}
+
+    def test_list_mapping_item_paired_with_non_mapping(self):
+        a = Dixt(x=[{'y': 1}, 2])
+        b = Dixt(x=[5, 2])
+        self_diff, other_diff = a.diff(b)[0]
+        assert self_diff == {'x': [{'y': 1}, ...]}
+        assert isinstance(self_diff['x'][0], Dixt)
+        assert other_diff == {'x': [5, ...]}
+
+    def test_list_non_builtin_item_uses_repr(self):
+        class Baz:
+            def __repr__(self):
+                return 'Baz()'
+
+        a = Dixt(x=[1, Baz()])
+        b = Dixt(x=[1, 2])
+        self_diff, other_diff = a.diff(b)[0]
+        assert self_diff == {'x': [..., 'Baz()']}
+        assert other_diff == {'x': [..., 2]}
+
+    def test_list_of_mappings_with_different_lengths(self):
+        a = Dixt(x=[{'y': 1}, {'z': 2}])
+        b = Dixt(x=[{'y': 1}])
+        self_diff, other_diff = a.diff(b)[0]
+        assert self_diff == {'x': [..., {'z': 2}]}
+        assert other_diff == {'x': [...]}
+
+    def test_tuple_values_not_diffed_element_by_element(self):
+        a = Dixt(x=(1, 2, 3))
+        b = Dixt(x=(1, 2, 99))
+        self_diff, other_diff = a.diff(b)[0]
+        assert self_diff == {'x': (1, 2, 3)}
+        assert other_diff == {'x': (1, 2, 99)}
+
+    def test_empty_self_versus_non_empty_other(self):
+        self_diff, other_diff = Dixt().diff({'x': 1})[0]
+        assert self_diff == {}
+        assert other_diff == {'x': 1}
+
+    def test_keys_are_matched_by_normalised_form(self):
+        assert Dixt({'A-B': 1}).diff({'a_b': 1}) == []
+        assert Dixt({'A-B': {'C D': 1}}).diff({'a_b': {'c_d': 1}}) == []
+        assert Dixt({'A-B': [{'C D': 1}]}).diff({'a_b': [{'c_d': 1}]}) == []
+
+        # matched entries are reported using this object's key form
+        self_diff, other_diff = Dixt({'A-B': 1}).diff({'a_b': 99})[0]
+        assert self_diff == {'A-B': 1}
+        assert other_diff == {'A-B': 99}
+
+    def test_hidden_items_are_not_compared(self):
+        a = Dixt(x=1, y=2)
+        b = Dixt(x=1, y=99)
+        a.keymeta('y', hidden=True)
+        b.keymeta('y', hidden=True)
+        assert a.diff(b) == []
+
+    def test_item_hidden_in_self_only_is_reported_as_other_only(self):
+        a = Dixt(x=1, y=2)
+        b = Dixt(x=1, y=99)
+        a.keymeta('y', hidden=True)
+        self_diff, other_diff = a.diff(b)[0]
+        assert self_diff == {}
+        assert other_diff == {'y': 99}
+
+    def test_order_of_pairs_follows_insertion_order(self):
+        a = Dixt(b2={'c': 1}, x=1, b1={'a': 1})
+        b = Dixt(b2={'c': 2}, x=2, b1={'a': 2})
+        result = a.diff(b)
+        assert len(result) == 3
+        assert [list(sd.keys()) for sd, _ in result] == [['x'], ['b2'], ['b1']]
+        assert a.diff(b) == result  # deterministic across calls
+
+
 def _assert_obj_tree_has_no_dixt_object(obj):
     assert not isinstance(obj, Dixt)
     if isinstance(obj, dict):

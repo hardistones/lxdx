@@ -260,6 +260,47 @@ class Dixt(MutableMapping):
 
         return _dictify(self)
 
+    def diff(self, other: Mapping, /) -> List[Tuple]:
+        """Return the recursive difference between this object and `other`.
+
+        Compares each key-value pair, recursing into nested ``Mapping``
+        values. Equal pairs are excluded from the result.
+        Keys are matched by their normalised form, as in :meth:`merge_update`,
+        and are reported using this object's key form. Hidden items
+        (see :meth:`keymeta`) are not compared.
+
+        ``list`` values paired on both sides are compared element-by-element:
+
+        * a run of consecutive equal items is collapsed into a single
+          ``Ellipsis`` (``...``) placeholder;
+        * paired ``Mapping`` items are diffed recursively;
+        * paired ``list`` items are diffed recursively as lists;
+        * any other differing pair is kept as-is on both sides;
+        * when the lengths differ, the surplus items are kept as-is
+          on the side that has them.
+
+        :param other: Another ``Dixt`` or any ``Mapping`` to diff against.
+        :returns: A list of ``(self_diff, other_diff)`` tuples of ``Dixt``
+                  objects containing only the differing entries: one pair for
+                  all differing non-``Mapping`` entries (when any), followed by
+                  one pair per key whose ``Mapping`` value differs.
+                  An empty list is returned when the two objects are equal.
+                  Non-``Mapping`` non-builtin values are represented by their
+                  ``repr()``.
+        :raises TypeError: If `other` is not a ``Mapping``.
+        """
+        if not isinstance(other, Mapping):
+            raise TypeError(f'Expected Mapping, got {type(other)}')
+
+        root_self, root_other, branches = _diff_entries(self, other)
+
+        result = []
+        if root_self or root_other:
+            result.append((Dixt(root_self), Dixt(root_other)))
+        result.extend((Dixt({key: sub_self}), Dixt({key: sub_other}))
+                      for key, sub_self, sub_other in branches)
+        return result
+
     def getx(self, *attrs, default=None) -> Any:
         """Get one or more items specified in `attrs`.
         Replace nonexistent item(s) with value(s) in default.
@@ -548,6 +589,125 @@ class Dixt(MutableMapping):
         # remove key completely if there's no more flags
         if not self.__keymeta__[key].keys():
             del self.__keymeta__[key]
+
+
+def _to_repr_if_nonbuiltin(value):
+    if isinstance(value, Mapping):
+        return Dixt(value) if not isinstance(value, Dixt) else value
+    if isinstance(value, (bool, int, float, complex, str, bytes, bytearray,
+                          list, tuple, set, frozenset, type(None))):
+        return value
+    return repr(value)
+
+
+def _diff_entries(self_dixt, other):
+    """Compare two mappings key by key, matching keys by their normalised form.
+
+    :returns: A ``(root_self, root_other, branches)`` tuple, where the roots are
+              ``dict``s of all differing non-``Mapping`` entries, and `branches`
+              is a list of ``(key, self_diff, other_diff)`` tuples, one per key
+              whose ``Mapping`` value differs.
+    """
+    other_dixt = other if isinstance(other, Dixt) else Dixt(other)
+    self_data, other_data = self_dixt.__data__, other_dixt.__data__
+
+    root_self: dict = {}
+    root_other: dict = {}
+    branches: list = []
+    matched: list = []
+
+    for key in self_data:
+        okey = other_dixt.__keymap__.get(_normalise_key(key), ...)
+        if okey is Ellipsis or okey not in other_data:
+            root_self[key] = _to_repr_if_nonbuiltin(self_data[key])
+            continue
+
+        matched.append(okey)
+        sv, ov = self_data[key], other_data[okey]
+        if sv == ov:
+            continue
+
+        if isinstance(sv, Mapping) and isinstance(ov, Mapping):
+            sub = _diff_mappings(sv, ov)
+            if sub is not None:
+                branches.append((key, *sub))
+        elif isinstance(sv, list) and isinstance(ov, list):
+            sub_self, sub_other = _diff_lists(sv, ov)
+            if _all_ellipsis(sub_self) and _all_ellipsis(sub_other):
+                # items only differ in their keys' non-normalised form
+                continue
+            root_self[key], root_other[key] = sub_self, sub_other
+        else:
+            root_self[key] = _to_repr_if_nonbuiltin(sv)
+            root_other[key] = _to_repr_if_nonbuiltin(ov)
+
+    for okey in other_data:
+        if okey not in matched:
+            root_other[okey] = _to_repr_if_nonbuiltin(other_data[okey])
+
+    return root_self, root_other, branches
+
+
+def _diff_mappings(self_map, other_map):
+    """Consolidate the recursive diff of two ``Mapping`` objects into
+    a single ``(self_diff, other_diff)`` pair of ``Dixt`` objects,
+    or ``None`` when the two mappings are equal.
+    """
+    self_dixt = self_map if isinstance(self_map, Dixt) else Dixt(self_map)
+    sd, od, branches = _diff_entries(self_dixt, other_map)
+
+    for key, sub_self, sub_other in branches:
+        sd[key], od[key] = sub_self, sub_other
+
+    if sd or od:
+        return Dixt(sd), Dixt(od)
+    return None
+
+
+def _all_ellipsis(container):
+    return all(item is Ellipsis for item in container)
+
+
+def _diff_lists(self_list, other_list):
+    """Diff two lists element-by-element, collapsing runs of equal items
+    into a single ``Ellipsis``, and keeping the surplus items of the
+    longer list as-is.
+
+    :returns: A ``(self_diff, other_diff)`` tuple of ``list`` objects.
+    """
+    def _collapse(container):
+        if not container or container[-1] is not Ellipsis:
+            container.append(...)
+
+    sd: list = []
+    od: list = []
+    min_len = min(len(self_list), len(other_list))
+
+    for i in range(min_len):
+        sv, ov = self_list[i], other_list[i]
+        if sv == ov:
+            _collapse(sd)
+            _collapse(od)
+        elif isinstance(sv, Mapping) and isinstance(ov, Mapping):
+            sub = _diff_mappings(sv, ov)
+            if sub is None:
+                _collapse(sd)
+                _collapse(od)
+            else:
+                sd.append(sub[0])
+                od.append(sub[1])
+        elif isinstance(sv, list) and isinstance(ov, list):
+            sub_self, sub_other = _diff_lists(sv, ov)
+            sd.append(sub_self)
+            od.append(sub_other)
+        else:
+            sd.append(_to_repr_if_nonbuiltin(sv))
+            od.append(_to_repr_if_nonbuiltin(ov))
+
+    sd.extend(_to_repr_if_nonbuiltin(item) for item in self_list[min_len:])
+    od.extend(_to_repr_if_nonbuiltin(item) for item in other_list[min_len:])
+
+    return sd, od
 
 
 def _hype(spec):
