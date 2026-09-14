@@ -57,20 +57,6 @@ class Dixt(MutableMapping):
     # flags and their corresponding 'off' values.
     __meta_resets__ = {'hidden': False}
 
-    def __new__(cls, data=None, /, **kwargs):
-        # use deepcopy 'cause sometimes data can be an iterator,
-        # so it won't be 'used up' before __init__()
-        try:
-            spec = dict(deepcopy(data) or {}) | kwargs
-        except Exception as exc:
-            raise DixtException(f"Cannot convert to dict type: {data}") from exc
-        dx = super().__new__(cls)
-
-        # holds all normalised keys including non-str keys
-        dx.__dict__['__keymap__'] = {_normalise_key(key): key
-                                     for key in spec.keys()}
-        return dx
-
     def __init__(self, data=None, /, **kwargs):
         """Initialise an empty object, or from another mapping object,
         sequence of key-value pairs, or keyword arguments.
@@ -81,7 +67,15 @@ class Dixt(MutableMapping):
                        (if there are same keys) ``data``.
         """
         super().__init__()
-        spec = dict(data or {}) | kwargs
+        try:
+            spec = dict({} if data is None else data) | kwargs
+        except Exception as exc:
+            raise DixtException(f"Cannot convert to dict type: {data}") from exc
+
+        # holds all normalised keys including non-str keys
+        self.__dict__['__keymap__'] = {
+            _normalise_key(key): key for key in spec
+        }
 
         # holds all original keys and their values
         self.__dict__['__data__'] = _hype(spec)
@@ -114,7 +108,7 @@ class Dixt(MutableMapping):
         if (origkey := self.__get_orig_key(attr)) is not Ellipsis:
             if origkey in self.whats_hidden():
                 del self.__hidden__[origkey]
-                del self.__keymeta__[origkey]
+                del self.__keymeta__[_normalise_key(origkey)]
             else:
                 del self.__data__[origkey]
             del self.__keymap__[_normalise_key(attr)]
@@ -146,7 +140,7 @@ class Dixt(MutableMapping):
     def __getitem__(self, key):
         try:
             if (_key := self.__get_orig_key(key)) is Ellipsis:
-                _key = key
+                raise KeyError(key)
             return self.__getattr__(_key)
         except (AttributeError, TypeError) as e:
             raise KeyError(key) from e
@@ -233,17 +227,29 @@ class Dixt(MutableMapping):
 
     def clear(self):
         """Remove all items in this object."""
+        # The try-while-true mechanism is copied from Python's collections module,
+        # with comment "proper disposal".
         try:
             while True:
-                # proper disposal
                 self.__data__.popitem()
         except KeyError:
             pass
 
         try:
             while True:
-                # proper disposal
                 self.__keymap__.popitem()
+        except KeyError:
+            pass
+
+        try:
+            while True:
+                self.__keymeta__.popitem()
+        except KeyError:
+            pass
+
+        try:
+            while True:
+                self.__hidden__.popitem()
         except KeyError:
             pass
 
@@ -256,6 +262,8 @@ class Dixt(MutableMapping):
                         in this.__data__.items()}
             if isinstance(this, list):
                 return [_dictify(item) for item in this]
+            if isinstance(this, tuple):
+                return tuple(_dictify(item) for item in this)
             return this
 
         return _dictify(self)
@@ -265,8 +273,8 @@ class Dixt(MutableMapping):
 
         Compares each key-value pair, recursing into nested ``Mapping``
         values. Equal pairs are excluded from the result.
-        Keys are matched by their normalised form, as in :meth:`merge_update`,
-        and are reported using this object's key form. Hidden items
+        Keys are matched by their original form at every nesting level.
+        Differences preserve each mapping's original keys. Hidden items
         (see :meth:`keymeta`) are not compared.
 
         ``list`` values paired on both sides are compared element-by-element:
@@ -375,6 +383,8 @@ class Dixt(MutableMapping):
         :param other: Other ``dict``, ``Dixt``, or ``Mapping`` objects to compare to.
         """
         def _is_submap(this, reference):
+            if not isinstance(reference, Mapping):
+                return False
             for key, value in this.items():
                 if key not in reference:
                     return False
@@ -517,22 +527,22 @@ class Dixt(MutableMapping):
         """Update this object with the contents of ``other`` recursively.
 
         Unlike :meth:`update`, nested ``Mapping`` values are merged rather than
-        replaced. For ``list`` values, behaviour depends on ``recurse_lists``:
-        when ``True``, items are merged element-by-element (paired ``Mapping``
-        items are recursively merged; all other paired items are replaced; the
-        list is resized to match ``other``'s length); when ``False`` (default),
-        the list in ``self`` is replaced entirely.
+        replaced. For ``list`` values, behaviour depends on ``recurse_lists``.
 
         :param other: A ``Mapping`` (e.g. ``dict``, ``Dixt``) to merge from.
+
         :param recurse_lists: If ``True``, merge list items element-by-element
-                              rather than replacing the whole list.
+            rather than replacing the whole list. The list is resized to match
+            ``other``'s length.
+            If ``False`` (default), the list in ``self`` is replaced entirely.
+
         :raises TypeError: If ``other`` is not a ``Mapping``.
         """
         if not isinstance(other, Mapping):
             raise TypeError(f'Expected Mapping, got {type(other)}')
 
         for key, other_value in other.items():
-            self_value = self.getx(key, default=...)
+            self_value = self.get(key, ...)
 
             if self_value is Ellipsis:
                 self.__setattr__(key, other_value)
@@ -601,7 +611,7 @@ def _to_repr_if_nonbuiltin(value):
 
 
 def _diff_entries(self_dixt, other):
-    """Compare two mappings key by key, matching keys by their normalised form.
+    """Compare two mappings key by key, matching their original keys.
 
     :returns: A ``(root_self, root_other, branches)`` tuple, where the roots are
               ``dict``s of all differing non-``Mapping`` entries, and `branches`
@@ -617,13 +627,12 @@ def _diff_entries(self_dixt, other):
     matched: list = []
 
     for key in self_data:
-        okey = other_dixt.__keymap__.get(_normalise_key(key), ...)
-        if okey is Ellipsis or okey not in other_data:
+        if key not in other_data:
             root_self[key] = _to_repr_if_nonbuiltin(self_data[key])
             continue
 
-        matched.append(okey)
-        sv, ov = self_data[key], other_data[okey]
+        matched.append(key)
+        sv, ov = self_data[key], other_data[key]
         if sv == ov:
             continue
 
@@ -634,7 +643,7 @@ def _diff_entries(self_dixt, other):
         elif isinstance(sv, list) and isinstance(ov, list):
             sub_self, sub_other = _diff_lists(sv, ov)
             if _all_ellipsis(sub_self) and _all_ellipsis(sub_other):
-                # items only differ in their keys' non-normalised form
+                # Recursive comparison found no visible differences.
                 continue
             root_self[key], root_other[key] = sub_self, sub_other
         else:
@@ -740,6 +749,8 @@ def _merge_list_update(self_list, other_list, recurse_lists):
 
     for i in range(min_len):
         if isinstance(self_list[i], Mapping) and isinstance(other_list[i], Mapping):
+            if not isinstance(self_list[i], Dixt):
+                self_list[i] = Dixt(self_list[i])
             self_list[i].merge_update(other_list[i], recurse_lists=recurse_lists)
         else:
             self_list[i] = Dixt(other_list[i]) if isinstance(other_list[i], dict) else _hype(other_list[i])
