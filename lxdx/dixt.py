@@ -1,32 +1,5 @@
-"""
-Copyright (c) 2021, @github.com/hardistones
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without modification,
-are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice, this
-   list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright notice,
-   this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution.
-
-3. Neither the name of the copyright holder nor the names of its contributors
-   may be used to endorse or promote products derived from this software without
-   specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-"""
+# SPDX-FileCopyrightText: 2021-2026 @github.com/hardistones
+# SPDX-License-Identifier: BSD-3-Clause
 
 import json
 
@@ -36,6 +9,8 @@ from jsonpath_ng import parse
 from typing import Any, Dict, List, Mapping, Tuple, Union, Hashable
 
 __all__ = ['Dixt']
+
+_MISSING = object()
 
 
 class DixtException(Exception):
@@ -90,7 +65,7 @@ class Dixt(MutableMapping):
         # holds all original keys and their values
         self.__dict__['__data__'] = _hype(spec)
 
-        # container for keys and their meta flags
+        # container for original keys and their meta flags
         self.__dict__['__keymeta__'] = defaultdict(dict)
 
         # Container for hidden items as effect of the hidden flag.
@@ -115,17 +90,19 @@ class Dixt(MutableMapping):
 
         :raises KeyError: When original key is not found.
         """
-        if (origkey := self.__get_orig_key(attr)) is not Ellipsis:
-            if origkey in self.whats_hidden():
-                del self.__hidden__[origkey]
-                del self.__keymeta__[_normalise_key(origkey)]
-            else:
-                del self.__data__[origkey]
-            nkey = _normalise_key(attr)
-            if self.__keymap__.get(nkey, ...) == origkey:
-                del self.__keymap__[nkey]
-        else:
+        if (origkey := self.__get_orig_key(attr)) is _MISSING:
             raise KeyError(f"Dixt object has no attribute '{attr}'")
+
+        container = self.__hidden__ if origkey in self.__hidden__ else self.__data__
+        del container[origkey]
+        self.__keymeta__.pop(origkey, None)
+        nkey = _normalise_key(origkey)
+        owner = self.__keymap__.get(nkey, _MISSING)
+        if owner is origkey or owner == origkey:
+            del self.__keymap__[nkey]
+            for key in (*self.__data__, *self.__hidden__):
+                if _normalise_key(key) == nkey:
+                    self.__keymap__[nkey] = key
 
     def __delitem__(self, key):
         self.__delattr__(key)
@@ -135,25 +112,27 @@ class Dixt(MutableMapping):
             return self.__data__.__eq__(other.__data__)
         if isinstance(other, Mapping):
             return self.__data__.__eq__(other)
-        if not isinstance(other, (list, tuple, type(None))):
+        if not isinstance(other, (list, tuple)):
             return False
         try:
             return self.__data__.__eq__(_dictify_kvp(other))
-        except ValueError:
+        except (ValueError, TypeError):
             return False
 
     def __getattr__(self, key):
-        if (origkey := self.__get_orig_key(key)) is not Ellipsis:
-            if origkey in self.whats_hidden():
+        if (origkey := self.__get_orig_key(key)) is not _MISSING:
+            if origkey in self.__hidden__:
                 return self.__hidden__[origkey]
             return self.__data__[origkey]
         return super().__getattribute__(key)
 
     def __getitem__(self, key):
         try:
-            if (_key := self.__get_orig_key(key)) is Ellipsis:
+            if (_key := self.__get_orig_key(key)) is _MISSING:
                 raise KeyError(key)
-            return self.__getattr__(_key)
+            if _key in self.__hidden__:
+                return self.__hidden__[_key]
+            return self.__data__[_key]
         except (AttributeError, TypeError) as e:
             raise KeyError(key) from e
 
@@ -168,7 +147,7 @@ class Dixt(MutableMapping):
 
     def __setattr__(self, attr, value):
         nkey = _normalise_key(attr)
-        if (origkey := self.__get_orig_key(attr)) is Ellipsis:
+        if (origkey := self.__get_orig_key(attr)) is _MISSING:
             origkey = attr
         if nkey not in self.__keymap__:
             self.__keymap__[nkey] = attr
@@ -185,7 +164,7 @@ class Dixt(MutableMapping):
             container[origkey] = _hype(value)
 
     def __setitem__(self, key, value):
-        if (origkey := self.__get_orig_key(key)) is not Ellipsis:
+        if (origkey := self.__get_orig_key(key)) is not _MISSING:
             if key != origkey:
                 # No two keys should have the same normalised key,
                 # or the new key will overwrite the other original key.
@@ -200,17 +179,30 @@ class Dixt(MutableMapping):
 
         :returns: ``Dixt`` object
         """
-        # This function will also be called for in-place operations.
-        # So no need to implement __ior__(). For example:
-        #   dx = Dixt()
-        #   dx |= <Mapping>
-        #   dx |= <iterable key-value pairs>
         if isinstance(other, Dixt):
             other = other.dict()
         elif not isinstance(other, (tuple, list, Mapping)):
             raise TypeError(f'Invalid type ({type(other)}) for operation |')
 
         return Dixt(self.dict() | _dictify_kvp(other))
+
+    def __ior__(self, other):
+        """Update in place, preserving unmatched hidden entries on the left."""
+        if isinstance(other, Dixt):
+            other = other.dict()
+        elif not isinstance(other, (tuple, list, Mapping)):
+            raise TypeError(f'Invalid type ({type(other)}) for operation |=')
+
+        for key, value in _dictify_kvp(other).items():
+            new_key = key not in self.__data__ and key not in self.__hidden__
+            if key in self.__hidden__:
+                self.keymeta(key, hidden=False)
+            # Union matches original keys, including colliding aliases.
+            self.__data__[key] = Dixt(value) if isinstance(value, dict) else _hype(value)
+            nkey = _normalise_key(key)
+            if nkey == key or (new_key and nkey not in self.__data__ and nkey not in self.__hidden__):
+                self.__keymap__[nkey] = key
+        return self
 
     def __ror__(self, other) -> Dict:
         """This reverse union operator is called
@@ -255,9 +247,11 @@ class Dixt(MutableMapping):
         """Convert this object to ``dict``, with non-normalised keys."""
         def _dictify(this):
             if isinstance(this, Dixt):
+                this = this.__data__
+            if isinstance(this, Mapping):
                 return {key: _dictify(value)
                         for key, value
-                        in this.__data__.items()}
+                        in this.items()}
             if isinstance(this, list):
                 return [_dictify(item) for item in this]
             if isinstance(this, tuple):
@@ -337,8 +331,8 @@ class Dixt(MutableMapping):
 
         for i, key in enumerate(attrs):
             try:
-                result.append(self.__getattr__(key))
-            except AttributeError:
+                result.append(self[key])
+            except KeyError:
                 result.append(default[i])
 
         return tuple(result) if len(result) > 1 else result[0]
@@ -393,7 +387,11 @@ class Dixt(MutableMapping):
 
         :param other: Other ``dict``, ``Dixt``, or ``Mapping`` objects to compare to.
         """
-        return Dixt(other).is_submap_of(self)
+        if not isinstance(other, (tuple, list, Mapping)):
+            raise TypeError(f'Invalid type ({type(other)})')
+        if not isinstance(other, Mapping):
+            other = _dictify_kvp(other)
+        return _is_submap(other, self)
 
     def items(self) -> ItemsView:
         """Return a set-like object providing a view
@@ -413,15 +411,15 @@ class Dixt(MutableMapping):
             * hidden (boolean)
                 Hides the item from the output/result or processing of
                 some methods and operators of ``Dixt``.
-                See separate documentation for more info.
+                See documentation for more info.
 
         :raises KeyError: When any key is not found.
 
         .. note::
             Non-supported flags are silently bypassed.
         """
-        nkeys = [_normalise_key(k) for k in keys]
-        if not_found := _contents(self.__keymap__, *nkeys)[1]:
+        origkeys = [self.__get_orig_key(key) for key in keys]
+        if not_found := [key for key, origkey in zip(keys, origkeys) if origkey is _MISSING]:
             raise KeyError(f'Key(s not found: {not_found}')
 
         supported_flags = set(self.__metas__).intersection(flags)
@@ -430,13 +428,13 @@ class Dixt(MutableMapping):
                 raise TypeError(f'{flag} must be {self.__metas__[flag]}')
 
         retval = {}
-        for key in keys:
+        for key in origkeys:
             nkey = _normalise_key(key)
-            retval[nkey] = self.__keymeta__[nkey]
+            retval[nkey] = self.__keymeta__[key]
             for flag in supported_flags:
                 add_meta_func = f'_Dixt__add_{flag}_meta'
-                getattr(self, add_meta_func)(nkey, flags[flag])
-            self.__cleanup_meta(nkey)
+                getattr(self, add_meta_func)(key, flags[flag])
+            self.__cleanup_meta(key)
 
         return retval if not flags else None
 
@@ -451,18 +449,17 @@ class Dixt(MutableMapping):
 
         The `default` value will be returned if `key` is not found.
 
-        :raises KeyError: If attribute is not found
-                          and default value (other than ``Ellipsis``)
-                          is not specified.
+        :raises AttributeError: If the key is not found and a default value
+                                (other than ``Ellipsis``) is not specified.
         """
         try:
-            retval = self.__getattr__(key)
-            self.__delattr__(key)
-            return retval
-        except AttributeError as e:
-            if default == Ellipsis:
+            retval = self[key]
+        except KeyError as e:
+            if default is Ellipsis:
                 raise AttributeError(f"Dixt object has no key '{key}'") from e
             return default
+        del self[key]
+        return retval
 
     def popitem(self) -> tuple:
         """Returns a ``tuple`` of key-value pair.
@@ -501,7 +498,7 @@ class Dixt(MutableMapping):
         """Update this object from another ``Mapping`` objects (e.g., ``dict``, ``Dixt``),
         from an iterable key-value pairs, or through keyword arguments.
         """
-        if not hasattr(other, 'keys'):
+        if not isinstance(other, Mapping):
             other = _dictify_kvp(other)
 
         for container in (other, kwargs):
@@ -527,11 +524,14 @@ class Dixt(MutableMapping):
             raise TypeError(f'Expected Mapping, got {type(other)}')
 
         for key, other_value in other.items():
-            self_value = self.get(key, ...)
+            self_value = self.get(key, _MISSING)
 
-            if self_value is Ellipsis:
+            if self_value is _MISSING:
                 self.__setattr__(key, other_value)
-            elif isinstance(self_value, Dixt) and isinstance(other_value, Mapping):
+            elif isinstance(self_value, Mapping) and isinstance(other_value, Mapping):
+                if not isinstance(self_value, Dixt):
+                    self_value = Dixt(self_value)
+                    self.__setattr__(key, self_value)
                 self_value.merge_update(other_value, recurse_lists=recurse_lists)
             elif isinstance(self_value, list) and isinstance(other_value, list):
                 if recurse_lists:
@@ -560,28 +560,27 @@ class Dixt(MutableMapping):
         return Dixt(json.loads(json_str))  # let json handle errors
 
     def __get_orig_key(self, key):
-        """Returns Ellipsis if not found."""
+        """Return the original key, or the private sentinel if not found."""
         # Copy reconstruction can query attributes before restoring state.
         state = object.__getattribute__(self, '__dict__')
         if key in state.get('__data__', {}) or key in state.get('__hidden__', {}):
             return key
-        return state.get('__keymap__', {}).get(_normalise_key(key), ...)
+        return state.get('__keymap__', {}).get(_normalise_key(key), _MISSING)
 
     def __add_hidden_meta(self, key, value):
         self.__keymeta__[key]['hidden'] = value
-        origkey = self.__get_orig_key(key)
-        if value == (origkey in self.__hidden__):
+        if value == (key in self.__hidden__):
             return
         if value:
-            self.__hidden__[origkey] = self.__data__[origkey]
-            del self.__data__[origkey]
+            self.__hidden__[key] = self.__data__[key]
+            del self.__data__[key]
         else:
-            self.__data__[origkey] = self.__hidden__[origkey]
-            del self.__hidden__[origkey]
+            self.__data__[key] = self.__hidden__[key]
+            del self.__hidden__[key]
 
     def __cleanup_meta(self, key):
         """Remove empty, None, or any 'reset' values of flags
-        note: key should be normalised beforehand
+        note: key must be the original key
         """
         for flag, value in self.__meta_resets__.items():
             if self.__keymeta__[key].get(flag, 'xxx') == value:
@@ -599,19 +598,26 @@ def _is_submap(this, reference):
     for key, value in this.items():
         if key not in reference:
             return False
-        if not hasattr(value, 'keys'):
-            if reference[key] != value:
+        other_value = reference[key]
+        if isinstance(value, Mapping):
+            if not _is_submap(value, other_value):
                 return False
-        elif not _is_submap(this[key], reference[key]):
+        elif other_value is not value and other_value != value:
             return False
     return True
 
 
 def _to_repr_if_nonbuiltin(value):
     if isinstance(value, Mapping):
-        return Dixt(value) if not isinstance(value, Dixt) else value
+        return Dixt({key: _to_repr_if_nonbuiltin(item) for key, item in value.items()})
+    if isinstance(value, list):
+        return [_to_repr_if_nonbuiltin(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_to_repr_if_nonbuiltin(item) for item in value)
+    if value is Ellipsis:
+        return value
     if isinstance(value, (bool, int, float, complex, str, bytes, bytearray,
-                          list, tuple, set, frozenset, type(None))):
+                          set, frozenset, type(None))):
         return value
     return repr(value)
 
@@ -637,7 +643,7 @@ def _diff_entries(self_dixt, other):
             continue
 
         sv, ov = self_data[key], other_data[key]
-        if sv == ov:
+        if sv is ov or sv == ov:
             continue
 
         if isinstance(sv, Mapping) and isinstance(ov, Mapping):
@@ -645,11 +651,9 @@ def _diff_entries(self_dixt, other):
             if sub is not None:
                 branches.append((key, *sub))
         elif isinstance(sv, list) and isinstance(ov, list):
-            sub_self, sub_other = _diff_lists(sv, ov)
-            if _all_ellipsis(sub_self) and _all_ellipsis(sub_other):
-                # Recursive comparison found no visible differences.
-                continue
-            root_self[key], root_other[key] = sub_self, sub_other
+            sub = _diff_lists(sv, ov)
+            if sub is not None:
+                root_self[key], root_other[key] = sub
         else:
             root_self[key] = _to_repr_if_nonbuiltin(sv)
             root_other[key] = _to_repr_if_nonbuiltin(ov)
@@ -678,16 +682,13 @@ def _diff_mappings(self_map, other_map):
     return None
 
 
-def _all_ellipsis(container):
-    return all(item is Ellipsis for item in container)
-
-
 def _diff_lists(self_list, other_list):
     """Diff two lists element-by-element, collapsing runs of equal items
     into a single ``Ellipsis``, and keeping the surplus items of the
     longer list as-is.
 
-    :returns: A ``(self_diff, other_diff)`` tuple of ``list`` objects.
+    :returns: A ``(self_diff, other_diff)`` tuple of ``list`` objects,
+              or ``None`` when there are no visible differences.
     """
     def _collapse(container):
         if not container or container[-1] is not Ellipsis:
@@ -695,11 +696,12 @@ def _diff_lists(self_list, other_list):
 
     sd: list = []
     od: list = []
+    different = len(self_list) != len(other_list)
     min_len = min(len(self_list), len(other_list))
 
     for i in range(min_len):
         sv, ov = self_list[i], other_list[i]
-        if sv == ov:
+        if sv is ov or sv == ov:
             _collapse(sd)
             _collapse(od)
         elif isinstance(sv, Mapping) and isinstance(ov, Mapping):
@@ -708,20 +710,27 @@ def _diff_lists(self_list, other_list):
                 _collapse(sd)
                 _collapse(od)
             else:
+                different = True
                 sd.append(sub[0])
                 od.append(sub[1])
         elif isinstance(sv, list) and isinstance(ov, list):
-            sub_self, sub_other = _diff_lists(sv, ov)
-            sd.append(sub_self)
-            od.append(sub_other)
+            sub = _diff_lists(sv, ov)
+            if sub is None:
+                _collapse(sd)
+                _collapse(od)
+            else:
+                different = True
+                sd.append(sub[0])
+                od.append(sub[1])
         else:
+            different = True
             sd.append(_to_repr_if_nonbuiltin(sv))
             od.append(_to_repr_if_nonbuiltin(ov))
 
     sd.extend(_to_repr_if_nonbuiltin(item) for item in self_list[min_len:])
     od.extend(_to_repr_if_nonbuiltin(item) for item in other_list[min_len:])
 
-    return sd, od
+    return (sd, od) if different else None
 
 
 def _hype(spec):
@@ -757,6 +766,8 @@ def _merge_list_update(self_list, other_list, recurse_lists):
             if not isinstance(self_list[i], Dixt):
                 self_list[i] = Dixt(self_list[i])
             self_list[i].merge_update(other_list[i], recurse_lists=recurse_lists)
+        elif recurse_lists and isinstance(self_list[i], list) and isinstance(other_list[i], list):
+            _merge_list_update(self_list[i], other_list[i], recurse_lists)
         else:
             self_list[i] = Dixt(other_list[i]) if isinstance(other_list[i], dict) else _hype(other_list[i])
 
@@ -781,10 +792,14 @@ def _normalise_key(key: Hashable) -> Hashable:
 
 def _dictify_kvp(sequence):
     err_msg = f'Sequence {sequence} is not iterable key-value pairs'
-    if not isinstance(sequence, (list, tuple, Mapping, type(None))):
+    try:
+        iter(sequence)
+    except TypeError as e:
+        raise TypeError(err_msg) from e
+    if isinstance(sequence, (str, bytes, bytearray)):
         raise TypeError(err_msg)
     try:
-        return dict(sequence or {})
+        return dict(sequence)
     except (TypeError, ValueError) as e:
         raise ValueError(err_msg) from e
 
