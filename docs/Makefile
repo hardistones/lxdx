@@ -1,6 +1,10 @@
 # Minimal makefile for Sphinx documentation
 #
 
+# Use a valid UTF-8 locale even if the calling terminal has invalid settings.
+# Override with, for example, "make html LC_ALL=en_US.UTF-8".
+export LC_ALL = C.UTF-8
+
 # You can set these variables from the command line, and also
 # from the environment for the first two.
 SPHINXOPTS    ?=
