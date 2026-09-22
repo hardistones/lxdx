@@ -45,6 +45,7 @@ jobs:
           user: __token__
           password: ${{secrets.TEST_PYPI_API_TOKEN}}
           packages_dir: dist/
+          verbose: true
 
       - name: Publish packages to pypi.org
         if: github.event.release.target_commitish == 'main' && !github.event.release.prerelease
@@ -53,3 +54,4 @@ jobs:
           user: __token__
           password: ${{secrets.PYPI_API_TOKEN}}
           packages_dir: dist/
+          verbose: true

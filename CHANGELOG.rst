@@ -4,8 +4,24 @@ Changelog
 v0.7
 ****
 
-* New ``merge_update()`` to update ``self`` with contents of other mapping.
-* New ``diff()`` to compare differences between ``self`` and other mapping.
+* New ``merge_update()`` for recursive mapping updates, with optional
+  positional list merging and resizing via ``recurse_lists=True``.
+* New ``diff()`` for recursive mapping comparisons using original keys.
+  Hidden entries are excluded; equal list runs become ``...``.
+* Fix: Accept iterators and generators of key-value pairs during
+  initialisation and ``update()``, and preserve identity-based keys.
+* Fix: Preserve original keys with colliding normalised aliases, resolve
+  constructor keyword updates through aliases, and restore aliases after deletion.
+* Fix: Support ``Ellipsis`` as a key and prevent missing keys such as
+  ``'items'`` from resolving to methods in item lookup, ``getx()`` and ``pop()``.
+* Fix: Track metadata independently for colliding keys, allow repeated hidden
+  flag assignments, and remove hidden data and metadata in ``clear()``.
+* Fix: Make ``|=`` preserve the existing object's reference. Unmatched hidden
+  entries remain hidden; matching visible entries on the right replace and unhide them.
+* Fix: Recursively convert mappings inside tuples and plain containers in
+  ``dict()`` and ``json()``, excluding nested hidden entries.
+* Fix: Keep empty mappings distinct from ``None`` and handle nested
+  mapping/scalar mismatches and identical ``NaN`` values in map comparisons.
 
 v0.6
 ****
